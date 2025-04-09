@@ -18,6 +18,7 @@ api.interceptors.request.use(
     return config;
   },
   (error) => {
+    console.error('Error en interceptor de solicitud Axios:', error);
     return Promise.reject(error);
   }
 );

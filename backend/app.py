@@ -13,7 +13,7 @@ load_dotenv()
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from data_manager import DataManager
-from database import init_db, Usuario
+from backend.database import init_db, Usuario
 
 # Inicializar la aplicación Flask
 app = Flask(__name__)
@@ -26,6 +26,31 @@ CORS(app, resources={r"/*": {"origins": "*"}}, supports_credentials=True)
 
 # Inicializar JWT
 jwt = JWTManager(app)
+
+# Configurar manejadores de errores para JWT
+@jwt.invalid_token_loader
+def invalid_token_callback(error):
+    return jsonify({
+        'success': False,
+        'mensaje': 'Token inválido',
+        'error': str(error)
+    }), 422
+
+@jwt.expired_token_loader
+def expired_token_callback(jwt_header, jwt_payload):
+    return jsonify({
+        'success': False,
+        'mensaje': 'Token expirado',
+        'error': 'Token has expired'
+    }), 401
+
+@jwt.unauthorized_loader
+def missing_token_callback(error):
+    return jsonify({
+        'success': False,
+        'mensaje': 'Token no proporcionado',
+        'error': str(error)
+    }), 401
 
 # Inicializar la base de datos
 init_db()
