@@ -5,6 +5,9 @@ from datetime import timedelta
 import pandas as pd
 import os
 import sys
+from dotenv import load_dotenv
+
+load_dotenv()
 
 # Añadir el directorio principal al path para importar los módulos de database y data_manager
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
