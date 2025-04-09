@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Card, Table, Button, Modal, Form, Row, Col, Spinner, Alert } from 'react-bootstrap';
 import { FiPlus, FiEdit, FiTrash2, FiWind } from 'react-icons/fi';
-import axios from 'axios';
+import api from '../services/api';
 import { useAppContext } from '../context/AppContext';
 
 interface AireAcondicionado {
@@ -34,7 +34,7 @@ const Aires: React.FC = () => {
       try {
         setLoading(true);
         setError(null);
-        const response = await axios.get('/aires');
+        const response = await api.get('/aires');
         setAires(response.data);
       } catch (error) {
         console.error('Error al cargar aires:', error);
@@ -80,7 +80,7 @@ const Aires: React.FC = () => {
   const handleDelete = async (id: number) => {
     if (window.confirm('¿Está seguro de eliminar este aire acondicionado?')) {
       try {
-        await axios.delete(`/aires/${id}`);
+        await api.delete(`/aires/${id}`);
         setAires(aires.filter(aire => aire.id !== id));
       } catch (error) {
         console.error('Error al eliminar aire:', error);

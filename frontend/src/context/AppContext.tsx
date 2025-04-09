@@ -1,5 +1,5 @@
 import React, { createContext, useState, useContext, ReactNode, useEffect } from 'react';
-import axios from 'axios';
+import api from '../services/api';
 
 // Interfaces
 interface User {
@@ -49,21 +49,6 @@ interface AppContextProviderProps {
   children: ReactNode;
 }
 
-// Configurar axios
-axios.defaults.baseURL = '/api';
-
-// Interceptor para incluir token en solicitudes
-axios.interceptors.request.use(
-  (config) => {
-    const token = localStorage.getItem('token');
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
-    return config;
-  },
-  (error) => Promise.reject(error)
-);
-
 export const AppContextProvider: React.FC<AppContextProviderProps> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
@@ -73,16 +58,16 @@ export const AppContextProvider: React.FC<AppContextProviderProps> = ({ children
   // Cargar usuario si hay token
   useEffect(() => {
     const loadUser = async () => {
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem('access_token');
       if (token) {
         try {
           setLoading(true);
-          const response = await axios.get('/auth/user');
+          const response = await api.get('/auth/user');
           setUser(response.data);
           setIsAuthenticated(true);
         } catch (error) {
           console.error('Error al cargar usuario:', error);
-          localStorage.removeItem('token');
+          localStorage.removeItem('access_token');
           setIsAuthenticated(false);
           setUser(null);
         } finally {
@@ -100,10 +85,11 @@ export const AppContextProvider: React.FC<AppContextProviderProps> = ({ children
       setLoading(true);
       setError(null);
       
-      const response = await axios.post('/auth/login', { username, password });
+      const response = await api.post('/auth/login', { username, password });
       
       if (response.data.success) {
-        localStorage.setItem('token', response.data.access_token);
+        localStorage.setItem('access_token', response.data.access_token);
+        localStorage.setItem('user', JSON.stringify(response.data.user));
         setUser(response.data.user);
         setIsAuthenticated(true);
         return true;
@@ -126,7 +112,7 @@ export const AppContextProvider: React.FC<AppContextProviderProps> = ({ children
       setLoading(true);
       setError(null);
       
-      const response = await axios.post('/auth/register', userData);
+      const response = await api.post('/auth/register', userData);
       
       if (response.data.success) {
         return true;
@@ -145,7 +131,8 @@ export const AppContextProvider: React.FC<AppContextProviderProps> = ({ children
 
   // Función de logout
   const logout = () => {
-    localStorage.removeItem('token');
+    localStorage.removeItem('access_token');
+    localStorage.removeItem('user');
     setUser(null);
     setIsAuthenticated(false);
   };
