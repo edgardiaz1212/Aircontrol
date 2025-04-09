@@ -65,11 +65,22 @@ export const AppContextProvider: React.FC<AppContextProviderProps> = ({ children
           const response = await api.get('/auth/user');
           setUser(response.data);
           setIsAuthenticated(true);
-        } catch (error) {
+        } catch (error: any) {
           console.error('Error al cargar usuario:', error);
+          // Clear invalid token
           localStorage.removeItem('access_token');
+          localStorage.removeItem('user');
           setIsAuthenticated(false);
           setUser(null);
+          
+          // Handle specific error cases
+          if (error.response?.status === 401) {
+            setError('Sesión expirada, por favor ingresa nuevamente');
+          } else if (error.response?.status === 422) {
+            setError('Token inválido, por favor ingresa nuevamente');
+          } else {
+            setError('Error al cargar usuario');
+          }
         } finally {
           setLoading(false);
         }
