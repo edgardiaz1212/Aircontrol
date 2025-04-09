@@ -14,7 +14,11 @@ api.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('access_token');
     if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
+      // Ensure token doesn't already have 'Bearer ' prefix
+      const cleanToken = token.startsWith('Bearer ') ? token.slice(7) : token;
+      console.log('Sending token:', cleanToken); // Debug log
+      config.headers.Authorization = `Bearer ${cleanToken}`;
+      console.log('Authorization header:', config.headers.Authorization); // Debug log
     }
     return config;
   },

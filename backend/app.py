@@ -1,13 +1,24 @@
 from flask import Flask, jsonify, request, session
 from flask_cors import CORS
-from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity
+from flask_jwt_extended import (
+    JWTManager, 
+    create_access_token, 
+    jwt_required, 
+    get_jwt_identity,
+    get_jwt
+)
 from datetime import timedelta
 import pandas as pd
 import os
 import sys
 from dotenv import load_dotenv
 
+# Load environment variables
 load_dotenv()
+print("\n=== Environment Variables ===")
+print(f"DATABASE_URL: {os.environ.get('DATABASE_URL')}")
+print(f"SECRET_KEY: {os.environ.get('SECRET_KEY')}")
+print(f"JWT_SECRET_KEY: {os.environ.get('JWT_SECRET_KEY')}\n")
 
 # Añadir el directorio principal al path para importar los módulos de database y data_manager
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -33,6 +44,10 @@ jwt = JWTManager(app)
 # Configurar manejadores de errores para JWT
 @jwt.invalid_token_loader
 def invalid_token_callback(error):
+    print("\n=== JWT Validation Failed ===")
+    print(f"Error: {error}")
+    print(f"Authorization Header: {request.headers.get('Authorization')}")
+    print(f"Current JWT_SECRET_KEY: {app.config['JWT_SECRET_KEY']}")
     return jsonify({
         'success': False,
         'mensaje': 'Token inválido',
@@ -79,9 +94,10 @@ def login():
     
     if usuario:
         # Crear token de acceso
+        # Store user identity in additional claims
         access_token = create_access_token(
-            identity={
-                'id': usuario.id,
+            identity=str(usuario.id),  # Simple string subject
+            additional_claims={
                 'username': usuario.username,
                 'nombre': usuario.nombre,
                 'apellido': usuario.apellido,
@@ -121,7 +137,10 @@ def register():
     # Asignar rol
     rol = data.get('rol', 'operador')
     # Solo un administrador puede crear otros roles
-    current_user_id = get_jwt_identity().get('id') if request.headers.get('Authorization') else None
+    current_user_id = None
+    if request.headers.get('Authorization'):
+        jwt_data = get_jwt()
+        current_user_id = jwt_data.get('sub') or jwt_data.get('id')
     if current_user_id:
         current_user = data_manager.obtener_usuario_por_id(current_user_id)
         if current_user and current_user.rol == 'admin':
@@ -150,7 +169,15 @@ def register():
 @app.route('/api/auth/user', methods=['GET'])
 @jwt_required()
 def get_user():
-    current_user = get_jwt_identity()
+    jwt_data = get_jwt()
+    current_user = {
+        'id': int(get_jwt_identity()),
+        'username': jwt_data.get('username'),
+        'nombre': jwt_data.get('nombre'),
+        'apellido': jwt_data.get('apellido'),
+        'email': jwt_data.get('email'),
+        'rol': jwt_data.get('rol')
+    }
     return jsonify(current_user)
 
 # Rutas para aires acondicionados

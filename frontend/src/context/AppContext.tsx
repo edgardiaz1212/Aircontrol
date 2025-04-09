@@ -63,7 +63,12 @@ export const AppContextProvider: React.FC<AppContextProviderProps> = ({ children
         try {
           setLoading(true);
           const response = await api.get('/auth/user');
-          setUser(response.data);
+          if (response.data) {
+            setUser({
+              ...response.data,
+              id: parseInt(response.data.id)
+            });
+          }
           setIsAuthenticated(true);
         } catch (error: any) {
           console.error('Error al cargar usuario:', error);
@@ -99,7 +104,11 @@ export const AppContextProvider: React.FC<AppContextProviderProps> = ({ children
       const response = await api.post('/auth/login', { username, password });
       
       if (response.data.success) {
-        localStorage.setItem('access_token', response.data.access_token);
+        // Ensure we store the raw token without 'Bearer ' prefix
+        const token = response.data.access_token.startsWith('Bearer ') 
+          ? response.data.access_token.slice(7) 
+          : response.data.access_token;
+        localStorage.setItem('access_token', token);
         localStorage.setItem('user', JSON.stringify(response.data.user));
         setUser(response.data.user);
         setIsAuthenticated(true);
