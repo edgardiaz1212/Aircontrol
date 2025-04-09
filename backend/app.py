@@ -266,7 +266,7 @@ def get_lecturas():
         lecturas_df = data_manager.obtener_lecturas()
     
     if lecturas_df.empty:
-        return jsonify([])
+        return jsonify({'success': True, 'data': []})
     
     lecturas = []
     for _, row in lecturas_df.iterrows():
@@ -278,7 +278,7 @@ def get_lecturas():
             'humedad': float(row['humedad'])
         })
     
-    return jsonify(lecturas)
+    return jsonify({'success': True, 'data': lecturas})
 
 @app.route('/api/lecturas', methods=['POST'])
 @jwt_required()

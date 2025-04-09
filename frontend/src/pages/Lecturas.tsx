@@ -56,7 +56,8 @@ const Lecturas: React.FC = () => {
           url += `?aire_id=${filtroAire}`;
         }
         const lecturasResponse = await axios.get(url);
-        
+        console.log('Respuesta de /lecturas:', lecturasResponse.data); // <-- Añade esto para depurar
+
         // Añadir información del aire a cada lectura
         const lecturasConDetalles = lecturasResponse.data.map((lectura: Lectura) => {
           const aire = airesResponse.data.find((a: AireAcondicionado) => a.id === lectura.aire_id);
