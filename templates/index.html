@@ -1,0 +1,22 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Monitor Aires Acondicionados</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <h1>Monitor de Aires Acondicionados</h1>
+    
+    <div class="aires-list">
+        {% for aire in aires %}
+        <div class="aire-card">
+            <h3>{{ aire.nombre }}</h3>
+            <p>Ubicación: {{ aire.ubicacion }}</p>
+        </div>
+        {% endfor %}
+    </div>
+
+    <script src="{{ url_for('static', filename='app.js') }}"></script>
+</body>
+</html>
