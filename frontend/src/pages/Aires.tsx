@@ -95,11 +95,11 @@ const Aires: React.FC = () => {
     
     try {
       if (formMode === 'add') {
-        const response = await axios.post('/aires', formData);
+        const response = await api.post('/aires', formData);
         const nuevoAire = { ...formData, id: response.data.id } as AireAcondicionado;
         setAires([...aires, nuevoAire]);
       } else {
-        await axios.put(`/aires/${formData.id}`, formData);
+        await api.put(`/aires/${formData.id}`, formData);
         setAires(aires.map(aire => 
           aire.id === formData.id ? { ...aire, ...formData } as AireAcondicionado : aire
         ));
