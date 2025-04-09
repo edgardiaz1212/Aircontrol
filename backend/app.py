@@ -23,7 +23,7 @@ print(f"JWT_SECRET_KEY: {os.environ.get('JWT_SECRET_KEY')}\n")
 # Añadir el directorio principal al path para importar los módulos de database y data_manager
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from data_manager import DataManager
+from backend.data_manager import DataManager
 from backend.database import init_db, Usuario
 
 # Inicializar la aplicación Flask

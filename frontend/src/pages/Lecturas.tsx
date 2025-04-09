@@ -85,14 +85,15 @@ const Lecturas: React.FC = () => {
     setFiltroAire(aireId);
   };
 
-  // Manejar cambios en el formulario
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    const { name, value } = e.target;
-    setFormData({
-      ...formData,
-      [name]: value
-    });
-  };
+// Manejar cambios en el formulario
+const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+  const { name, value } = e.target;
+  setFormData({
+    ...formData,
+    [name]: value
+  });
+};
+
 
   // Abrir modal para agregar
   const handleAdd = () => {
