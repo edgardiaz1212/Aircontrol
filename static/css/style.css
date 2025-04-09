@@ -1,0 +1,165 @@
+/* Estilos personalizados para la aplicación de Monitoreo AC */
+
+/* Estilos Generales */
+body {
+    background-color: #f8f9fa;
+}
+
+/* Ajustes a la barra de navegación */
+.navbar {
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.navbar-brand {
+    font-weight: bold;
+}
+
+/* Estilos para tarjetas */
+.card {
+    border-radius: 0.5rem;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+    transition: transform 0.3s, box-shadow 0.3s;
+    margin-bottom: 1.5rem;
+}
+
+.card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.1);
+}
+
+.card-header {
+    border-top-left-radius: 0.5rem !important;
+    border-top-right-radius: 0.5rem !important;
+}
+
+/* Estilos para botones */
+.btn {
+    border-radius: 0.3rem;
+}
+
+/* Estilos para formularios */
+.form-control, .form-select {
+    border-radius: 0.3rem;
+}
+
+/* Colores y temas personalizados */
+.bg-gradient-primary {
+    background: linear-gradient(135deg, #0d6efd, #084298);
+}
+
+/* Estilos para páginas de autenticación */
+.auth-container {
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background: linear-gradient(135deg, #f8f9fa, #e9ecef);
+}
+
+.auth-card {
+    min-width: 350px;
+    border: none;
+    box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+}
+
+/* Tablas responsive */
+.table-responsive {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
+/* Badges y etiquetas */
+.badge {
+    padding: 0.35em 0.65em;
+    font-weight: 500;
+}
+
+/* Estilos para gráficos */
+.chart-container {
+    position: relative;
+    min-height: 300px;
+}
+
+/* Estilos para las métricas del dashboard */
+.metric-card {
+    text-align: center;
+    padding: 1.5rem;
+}
+
+.metric-value {
+    font-size: 2.5rem;
+    font-weight: 700;
+    margin-bottom: 0;
+}
+
+.metric-title {
+    font-size: 1rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 0;
+    opacity: 0.7;
+}
+
+/* Iconos y badges */
+.feature-icon {
+    font-size: 1.5rem;
+    margin-right: 0.5rem;
+}
+
+/* Estilo para mensajes de alerta */
+.alert {
+    border-radius: 0.3rem;
+}
+
+/* Media queries para mejoras en móviles */
+@media (max-width: 768px) {
+    .card-title {
+        font-size: 1.1rem;
+    }
+    
+    .metric-value {
+        font-size: 1.8rem;
+    }
+}
+
+/* Animaciones para elementos de UI */
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+.fade-in {
+    animation: fadeIn 0.5s ease-in-out;
+}
+
+/* Tema claro/oscuro según preferencia del sistema */
+@media (prefers-color-scheme: dark) {
+    body {
+        background-color: #212529;
+        color: #f8f9fa;
+    }
+    
+    .card {
+        background-color: #343a40;
+        color: #f8f9fa;
+    }
+    
+    .card-header {
+        background-color: #2c3034;
+    }
+    
+    .table {
+        color: #f8f9fa;
+    }
+    
+    .form-control, .form-select {
+        background-color: #2c3034;
+        color: #f8f9fa;
+        border-color: #495057;
+    }
+    
+    .form-control:focus, .form-select:focus {
+        background-color: #2c3034;
+        color: #f8f9fa;
+    }
+}
