@@ -53,28 +53,31 @@ const Lecturas: React.FC = () => {
       setLoading(true);
       setError(null);
       try {
-        // Cargar aires (solo una vez o cuando sea necesario)
-        if (aires.length === 0) {
-            const airesResponse = await api.get('/aires');
-            // Asegurarse que la respuesta es un array
-            const airesData = airesResponse.data?.data || airesResponse.data || [];
-            if (Array.isArray(airesData)) {
-                setAires(airesData);
-            } else {
-                console.error("Respuesta inesperada para /aires:", airesResponse.data);
-                setAires([]); // Establecer a vacío si el formato es incorrecto
-            }
-        }
-
-        // Cargar lecturas (depende del filtro)
-        let url = '/lecturas';
-        const params: { aire_id?: number } = {};
+        // --- USAR Promise.all ---
+        let urlLecturas = '/lecturas';
+        const paramsLecturas: { aire_id?: number } = {};
         if (filtroAire) {
-          params.aire_id = filtroAire;
+          paramsLecturas.aire_id = filtroAire;
         }
-        const lecturasResponse = await api.get(url, { params });
 
-        // Asegurarse que la respuesta es un array
+        // Ejecutar ambas peticiones en paralelo y esperar a que ambas terminen
+        const [airesResponse, lecturasResponse] = await Promise.all([
+          api.get('/aires'), // Obtener siempre la lista fresca de aires
+          api.get(urlLecturas, { params: paramsLecturas })
+        ]);
+
+        // --- Procesar Aires PRIMERO ---
+        const airesData = airesResponse.data?.data || airesResponse.data || [];
+        if (!Array.isArray(airesData)) {
+            console.error("Respuesta inesperada para /aires:", airesResponse.data);
+            setAires([]); // Establecer a vacío si el formato es incorrecto
+            // Podrías lanzar un error aquí si los aires son cruciales
+            // throw new Error("Formato de datos de aires inválido.");
+        } else {
+            setAires(airesData); // Actualizar el estado de aires
+        }
+
+        // --- Procesar Lecturas DESPUÉS, usando los aires recién obtenidos ---
         const lecturasData = lecturasResponse.data?.data || lecturasResponse.data || [];
         if (!Array.isArray(lecturasData)) {
             console.error("Respuesta inesperada para /lecturas:", lecturasResponse.data);
@@ -82,9 +85,10 @@ const Lecturas: React.FC = () => {
             throw new Error("Formato de datos de lecturas inválido.");
         }
 
-        // Añadir información del aire a cada lectura (usando los aires ya cargados)
+        // Ahora 'airesData' contiene la lista actualizada de aires
         const lecturasConDetalles = lecturasData.map((lectura: Lectura) => {
-          const aire = aires.find((a: AireAcondicionado) => a.id === lectura.aire_id);
+          // Buscar en la lista de aires recién obtenida (airesData)
+          const aire = airesData.find((a: AireAcondicionado) => a.id === lectura.aire_id);
           return {
             ...lectura,
             aire_nombre: aire?.nombre || 'Desconocido',
@@ -92,22 +96,28 @@ const Lecturas: React.FC = () => {
           };
         });
 
-        // Ordenar por fecha descendente (más reciente primero)
+        // Ordenar por fecha descendente
         lecturasConDetalles.sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime());
 
-        setLecturas(lecturasConDetalles);
+        setLecturas(lecturasConDetalles); // Actualizar el estado de lecturas
 
       } catch (err: any) {
         console.error('Error al cargar datos:', err);
-        setError(err.message || 'Error al cargar los datos. Verifique la conexión.');
+        // Mostrar un mensaje más específico si es posible
+        const errorMsg = err.response?.data?.mensaje || err.message || 'Error al cargar los datos. Verifique la conexión y el formato de la respuesta.';
+        setError(errorMsg);
+        // Asegurarse de limpiar los estados en caso de error si es necesario
+        setAires([]);
+        setLecturas([]);
       } finally {
         setLoading(false);
       }
     };
 
     fetchData();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filtroAire]); // Recargar lecturas cuando cambia el filtro, pero no cuando cambia 'aires' dentro del efecto
+  // Quitar 'aires' de las dependencias si estaba, ya que se obtiene dentro del efecto
+  }, [filtroAire]); // Recargar solo cuando cambia el filtro
+
 
   // Filtrar por aire
   const handleFiltrarPorAire = useCallback((aireId: number | null) => {
