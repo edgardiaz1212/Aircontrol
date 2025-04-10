@@ -113,7 +113,7 @@ const Lecturas: React.FC = () => {
         });
 
         // Ordenar (como antes)
-        lecturasConDetalles.sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime());
+        lecturasConDetalles.sort((a: Lectura, b: Lectura) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime());
 
         setLecturas(lecturasConDetalles);
 

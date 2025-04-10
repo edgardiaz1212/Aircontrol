@@ -268,31 +268,23 @@ class DataManager:
         # Si no hay lecturas, devolver valores predeterminados
         if result.temp_avg is None:
             return {
-                'temperatura': {
-                    'promedio': 0,
-                    'minimo': 0,
-                    'maximo': 0
-                },
-                'humedad': {
-                    'promedio': 0,
-                    'minimo': 0,
-                    'maximo': 0
-                },
+                'temperatura_promedio': 0,
+                'temperatura_minima': 0,
+                'temperatura_maxima': 0,
+                'humedad_promedio': 0,
+                'humedad_minima': 0,
+                'humedad_maxima': 0,
                 'total_lecturas': 0
             }
         
-        # Convertir a diccionario
+        # Convertir a diccionario con estructura PLANA
         return {
-            'temperatura': {
-                'promedio': round(result.temp_avg, 2) if result.temp_avg else 0,
-                'minimo': round(result.temp_min, 2) if result.temp_min else 0,
-                'maximo': round(result.temp_max, 2) if result.temp_max else 0
-            },
-            'humedad': {
-                'promedio': round(result.hum_avg, 2) if result.hum_avg else 0,
-                'minimo': round(result.hum_min, 2) if result.hum_min else 0,
-                'maximo': round(result.hum_max, 2) if result.hum_max else 0
-            },
+            'temperatura_promedio': round(result.temp_avg, 2) if result.temp_avg else 0,
+            'temperatura_minima': round(result.temp_min, 2) if result.temp_min else 0,
+            'temperatura_maxima': round(result.temp_max, 2) if result.temp_max else 0,
+            'humedad_promedio': round(result.hum_avg, 2) if result.hum_avg else 0,
+            'humedad_minima': round(result.hum_min, 2) if result.hum_min else 0,
+            'humedad_maxima': round(result.hum_max, 2) if result.hum_max else 0,
             'total_lecturas': result.total_lecturas or 0
         }
         
