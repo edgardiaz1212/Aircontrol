@@ -615,8 +615,8 @@ def update_umbral(umbral_id):
 @app.route('/api/umbrales/<int:umbral_id>', methods=['DELETE'])
 @jwt_required()
 def delete_umbral(umbral_id):
-    current_user = get_jwt_identity()
-    if current_user.get('rol') not in ['admin', 'supervisor']:
+    jwt_data = get_jwt()
+    if jwt_data.get('rol') not in ['admin', 'supervisor']:
         return jsonify({'success': False, 'mensaje': 'No tienes permiso para realizar esta acción'}), 403
     
     resultado = data_manager.eliminar_umbral_configuracion(umbral_id)

@@ -1,0 +1,16 @@
+.app-footer {
+    padding: 1rem;
+    background-color: #f8f9fa; /* Light gray background */
+    border-top: 1px solid #dee2e6; /* Light border */
+    width: 100%;
+    margin-top: 2rem;
+  }
+  .main-content{
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh; /* Ensure at least full viewport height */
+  }
+  .app-footer {
+    margin-top: auto; /* Push footer to the bottom */
+  }
+  

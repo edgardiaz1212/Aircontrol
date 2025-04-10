@@ -1,13 +1,15 @@
 import React, { useState } from 'react';
-import { Outlet, useNavigate } from 'react-router-dom';
+import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { Container, Nav, Navbar, Button, Dropdown } from 'react-bootstrap';
 import { useAppContext } from '../context/AppContext';
 import { FiMenu, FiUser, FiLogOut, FiSettings, FiHome, FiWind, FiList, FiBarChart2, FiTool, FiAlertCircle, FiUsers } from 'react-icons/fi';
+import madDataIcon from '../img/mad_data.png'; // Importa la imagen
 
 const AppLayout: React.FC = () => {
   const { user, logout } = useAppContext();
   const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(false);
   const navigate = useNavigate();
+  const location = useLocation();
 
   const toggleSidebar = () => {
     setSidebarCollapsed(!sidebarCollapsed);
@@ -17,6 +19,9 @@ const AppLayout: React.FC = () => {
     logout();
     navigate('/login');
   };
+
+  // Determinar si se debe mostrar el footer
+  const showFooter = location.pathname !== '/login';
 
   return (
     <div className="app-container">
@@ -36,42 +41,42 @@ const AppLayout: React.FC = () => {
               {!sidebarCollapsed && <span className="ms-3">Dashboard</span>}
             </div>
           </Nav.Link>
-          
+
           <Nav.Link onClick={() => navigate('/aires')} className="text-light">
             <div className="d-flex align-items-center">
               <FiWind size={20} />
               {!sidebarCollapsed && <span className="ms-3">Aires</span>}
             </div>
           </Nav.Link>
-          
+
           <Nav.Link onClick={() => navigate('/lecturas')} className="text-light">
             <div className="d-flex align-items-center">
               <FiList size={20} />
               {!sidebarCollapsed && <span className="ms-3">Lecturas</span>}
             </div>
           </Nav.Link>
-          
+
           <Nav.Link onClick={() => navigate('/estadisticas')} className="text-light">
             <div className="d-flex align-items-center">
               <FiBarChart2 size={20} />
               {!sidebarCollapsed && <span className="ms-3">Estadísticas</span>}
             </div>
           </Nav.Link>
-          
+
           <Nav.Link onClick={() => navigate('/mantenimientos')} className="text-light">
             <div className="d-flex align-items-center">
               <FiTool size={20} />
               {!sidebarCollapsed && <span className="ms-3">Mantenimientos</span>}
             </div>
           </Nav.Link>
-          
+
           <Nav.Link onClick={() => navigate('/umbrales')} className="text-light">
             <div className="d-flex align-items-center">
               <FiAlertCircle size={20} />
               {!sidebarCollapsed && <span className="ms-3">Umbrales</span>}
             </div>
           </Nav.Link>
-          
+
           {user?.rol === 'admin' && (
             <Nav.Link onClick={() => navigate('/usuarios')} className="text-light">
               <div className="d-flex align-items-center">
@@ -113,6 +118,15 @@ const AppLayout: React.FC = () => {
         <Container fluid>
           <Outlet />
         </Container>
+        {/* Footer */}
+        {showFooter && (
+          <footer className="app-footer">
+            <div className="d-flex align-items-center justify-content-center">
+              <img src={madDataIcon} alt="MAD Data" height="60" className="me-2" />
+              <span className="text-muted">© {new Date().getFullYear()}</span>
+            </div>
+          </footer>
+        )}
       </div>
     </div>
   );

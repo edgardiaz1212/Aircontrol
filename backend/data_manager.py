@@ -699,14 +699,30 @@ class DataManager:
         Returns:
             True si se eliminó correctamente, False en caso contrario
         """
-        umbral = self.obtener_umbral_por_id(umbral_id)
-        
-        if umbral:
+        # Validar parámetro de entrada
+        if not isinstance(umbral_id, int) or umbral_id <= 0:
+            print(f"Error: ID de umbral inválido: {umbral_id}", file=sys.stderr)
+            return False
+            
+        try:
+            # Obtener el umbral
+            umbral = self.obtener_umbral_por_id(umbral_id)
+            
+            if not umbral:
+                print(f"Umbral con ID {umbral_id} no encontrado", file=sys.stderr)
+                return False
+                
+            # Eliminar el umbral
             session.delete(umbral)
             session.commit()
+            print(f"Umbral con ID {umbral_id} eliminado correctamente")
             return True
             
-        return False
+        except Exception as e:
+            print(f"Error al eliminar umbral {umbral_id}: {e}", file=sys.stderr)
+            traceback.print_exc()
+            session.rollback()
+            return False
         
     def verificar_lectura_dentro_umbrales(self, aire_id, temperatura, humedad):
         """
