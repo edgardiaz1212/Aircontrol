@@ -359,7 +359,14 @@ const Mantenimientos: React.FC = () => {
         show={showViewModal}
         onHide={() => setShowViewModal(false)}
         mantenimiento={selectedMantenimiento}
-        onShowImagen={handleShowImagen} // Pasa la función para abrir el modal de imagen desde el modal de vista
+        onShowImagen={(imagenUrl) => {
+          if (imagenUrl) {
+            const id = parseInt(imagenUrl, 10);
+            if (!isNaN(id)) {
+              handleShowImagen(id);
+            }
+          }
+        }} // Pasa la función para abrir el modal de imagen desde el modal de vista
         getBadgeColor={getBadgeColor}
         formatearFechaHora={formatearFechaHora}
       />

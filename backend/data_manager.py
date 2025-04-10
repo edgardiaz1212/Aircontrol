@@ -398,6 +398,30 @@ class DataManager:
             # SQLAlchemy eliminará automáticamente las lecturas asociadas debido a la relación cascade
             session.delete(aire)
             session.commit()
+            
+    def obtener_aire_por_id(self, aire_id):
+        """
+        Obtiene un aire acondicionado específico por su ID.
+
+        Args:
+            aire_id: ID del aire acondicionado a obtener.
+
+        Returns:
+            Objeto AireAcondicionado o None si no existe.
+        """
+        try:
+            # Validar que aire_id sea un entero razonable si es necesario
+            if not isinstance(aire_id, int) or aire_id <= 0:
+                print(f"Advertencia: ID de aire inválido solicitado: {aire_id}", file=sys.stderr)
+                return None
+
+            # Consultar la base de datos
+            return session.query(AireAcondicionado).filter(AireAcondicionado.id == aire_id).first()
+
+        except Exception as e:
+            print(f"Error en obtener_aire_por_id para ID {aire_id}: {e}", file=sys.stderr)
+            traceback.print_exc() # Imprime el traceback completo en la consola del servidor
+            return None # Devolver None en caso de error
     
     def agregar_mantenimiento(self, aire_id, tipo_mantenimiento, descripcion, tecnico, imagen_file=None):
         """

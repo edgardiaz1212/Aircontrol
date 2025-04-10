@@ -514,11 +514,44 @@ def add_mantenimiento():
         tecnico=tecnico,
         imagen_file=imagen_file
     )
-    
+
     if mantenimiento_id:
-        return jsonify({'success': True, 'mensaje': 'Mantenimiento registrado exitosamente', 'id': mantenimiento_id})
+        # --- INICIO CAMBIO ---
+        # Buscar el objeto recién creado para devolverlo completo
+        try:
+            nuevo_mantenimiento_obj = data_manager.obtener_mantenimiento_por_id(mantenimiento_id)
+            if nuevo_mantenimiento_obj:
+                # Obtener info del aire asociado
+                aire_info = data_manager.obtener_aire_por_id(nuevo_mantenimiento_obj.aire_id) # Necesitas este método en DataManager
+                aire_nombre = aire_info.nombre if aire_info else "Desconocido"
+                ubicacion = aire_info.ubicacion if aire_info else "Desconocida"
+
+                # Construir el diccionario de respuesta completo
+                respuesta_data = {
+                    'id': nuevo_mantenimiento_obj.id,
+                    'aire_id': nuevo_mantenimiento_obj.aire_id,
+                    'fecha': nuevo_mantenimiento_obj.fecha.strftime('%Y-%m-%d %H:%M:%S'),
+                    'tipo_mantenimiento': nuevo_mantenimiento_obj.tipo_mantenimiento,
+                    'descripcion': nuevo_mantenimiento_obj.descripcion,
+                    'tecnico': nuevo_mantenimiento_obj.tecnico,
+                    'tiene_imagen': nuevo_mantenimiento_obj.imagen_datos is not None,
+                    'aire_nombre': aire_nombre,
+                    'ubicacion': ubicacion
+                }
+                # Devolver el objeto completo dentro de 'data'
+                return jsonify({'success': True, 'mensaje': 'Mantenimiento registrado exitosamente', 'data': respuesta_data}), 201 # 201 Created
+            else:
+                # Si no se encontró por alguna razón (poco probable)
+                return jsonify({'success': False, 'mensaje': 'Mantenimiento guardado pero no se pudo recuperar'}), 500
+
+        except Exception as e_fetch:
+            print(f"Error al recuperar mantenimiento recién guardado {mantenimiento_id}: {e_fetch}")
+            # Devolver éxito parcial si se guardó pero no se pudo recuperar
+            return jsonify({'success': True, 'mensaje': 'Mantenimiento registrado, pero hubo un error al recuperar detalles.', 'id': mantenimiento_id}), 200
+        # --- FIN CAMBIO ---
     else:
-        return jsonify({'success': False, 'mensaje': 'Error al registrar el mantenimiento'})
+        return jsonify({'success': False, 'mensaje': 'Error al registrar el mantenimiento'}), 500
+
 
 @app.route('/api/mantenimientos/<int:mantenimiento_id>', methods=['DELETE'])
 @jwt_required()
