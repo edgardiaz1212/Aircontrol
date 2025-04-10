@@ -534,6 +534,24 @@ def delete_mantenimiento(mantenimiento_id):
     else:
         return jsonify({'success': False, 'mensaje': 'Error al eliminar el mantenimiento'})
 
+@app.route('/api/mantenimientos/<int:mantenimiento_id>/imagen', methods=['GET'])
+@jwt_required()
+def get_mantenimiento_imagen(mantenimiento_id):
+    try:
+        # Llamar a un nuevo método en data_manager para obtener la imagen base64
+        imagen_base64 = data_manager.obtener_imagen_mantenimiento_base64(mantenimiento_id)
+
+        if imagen_base64:
+            return jsonify({'success': True, 'imagen_base64': imagen_base64})
+        else:
+            # Puede que el mantenimiento no exista o no tenga imagen
+            return jsonify({'success': False, 'mensaje': 'Imagen no encontrada para este mantenimiento'}), 404
+
+    except Exception as e:
+        print(f"Error al obtener imagen de mantenimiento {mantenimiento_id}: {e}")
+        traceback.print_exc()
+        return jsonify({'success': False, 'mensaje': 'Error interno al obtener la imagen'}), 500
+
 # Rutas para umbrales
 # app.py - get_umbrales (Corregido)
 @app.route('/api/umbrales', methods=['GET'])

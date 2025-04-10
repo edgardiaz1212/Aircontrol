@@ -18,6 +18,7 @@ interface Mantenimiento {
   descripcion: string;
   tecnico: string;
   imagen?: string;
+  tiene_imagen: boolean;
   aire_nombre?: string;
   ubicacion?: string;
 }
@@ -27,7 +28,7 @@ interface MantenimientosTableProps {
   loading: boolean;
   canEdit: boolean;
   onShowViewModal: (mantenimiento: Mantenimiento) => void;
-  onShowImagen: (imagenUrl: string | undefined) => void;
+  onShowImagen: (id: number) => void
   onDelete: (id: number) => void;
   getBadgeColor: (tipo: string | undefined) => string;
   formatearFechaHora: (fechaStr: string | undefined) => string;
@@ -72,7 +73,6 @@ const MantenimientosTable: React.FC<MantenimientosTableProps> = ({
             <th>Fecha</th>
             <th>Tipo</th>
             <th>Técnico</th>
-            <th className="text-center">Imagen</th>
             <th className="text-end">Acciones</th>
           </tr>
         </thead>
@@ -100,23 +100,7 @@ const MantenimientosTable: React.FC<MantenimientosTableProps> = ({
                 <FiUser className="me-1" />
                 {mantenimiento.tecnico}
               </td>
-              <td className="text-center">
-                {mantenimiento.imagen ? (
-                  <Button
-                    variant="outline-info"
-                    size="sm"
-                    onClick={(e) => {
-                      e.stopPropagation(); // Prevent row click
-                      onShowImagen(mantenimiento.imagen);
-                    }}
-                    title="Ver Imagen"
-                  >
-                    <FiImage />
-                  </Button>
-                ) : (
-                  <span className="text-muted">-</span>
-                )}
-              </td>
+              
               <td className="text-end">
                 {/* Botón explícito para ver detalles (opcional, ya que el clic en fila funciona) */}
                 <Button
@@ -131,6 +115,18 @@ const MantenimientosTable: React.FC<MantenimientosTableProps> = ({
                  >
                     <FiInfo />
                  </Button>
+                 {mantenimiento.tiene_imagen && (
+                  <Button
+                    variant="outline-info"
+                    size="sm"
+                    className="ms-2"
+                    // Pasar el ID del mantenimiento al hacer clic
+                    onClick={() => onShowImagen(mantenimiento.id)}
+                    title="Ver imagen adjunta"
+                  >
+                    <FiImage />
+                  </Button>
+                )}
                 {canEdit && (
                   <Button
                     variant="outline-danger"

@@ -28,6 +28,7 @@ interface Mantenimiento {
   descripcion: string;
   tecnico: string;
   imagen?: string;
+  tiene_imagen: boolean; 
   aire_nombre?: string;
   ubicacion?: string;
 }
@@ -168,12 +169,27 @@ const Mantenimientos: React.FC = () => {
   };
 
   // Mostrar imagen en modal
-  const handleShowImagen = (imagenUrl: string | undefined) => {
-    if (imagenUrl) {
-        const fullImageUrl = imagenUrl.startsWith('http') ? imagenUrl : `${api.defaults.baseURL}${imagenUrl}`;
-        setImagenSeleccionada(fullImageUrl);
-        setShowImagenModal(true);
+  const handleShowImagen = async (id: number) => {
+    setError(null); // Limpiar errores previos
+    setImagenSeleccionada(null); // Limpiar imagen previa
+    setShowImagenModal(true); // Mostrar modal (quizás con un spinner dentro)
+
+    try {
+      // Llamar al nuevo endpoint para obtener la imagen base64
+      const response = await api.get(`/mantenimientos/${id}/imagen`);
+      // Asumiendo que el backend devuelve { success: true, imagen_base64: "data:image/..." }
+      if (response.data?.success && response.data?.imagen_base64) {
+        setImagenSeleccionada(response.data.imagen_base64);
+      } else {
+        throw new Error(response.data?.mensaje || "No se pudo cargar la imagen.");
+      }
+    } catch (error: any) {
+      console.error("Error al cargar imagen:", error);
+      const message = error.response?.data?.mensaje || "Error al cargar la imagen.";
+      setError(message);
+      setShowImagenModal(false); // Ocultar modal si hay error
     }
+    // Considera añadir un estado de 'loadingImagen' para el modal
   };
 
   // Enviar formulario de agregar

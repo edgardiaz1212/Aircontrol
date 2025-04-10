@@ -521,6 +521,34 @@ class DataManager:
         
         return False
     
+    def obtener_imagen_mantenimiento_base64(self, mantenimiento_id):
+        """
+        Obtiene la imagen de un mantenimiento específico en formato base64.
+
+        Args:
+            mantenimiento_id: ID del mantenimiento.
+
+        Returns:
+            String con la imagen en base64 (ej: "data:image/jpeg;base64,...") o None si no hay imagen o no existe el mantenimiento.
+        """
+        try:
+            mantenimiento = self.obtener_mantenimiento_por_id(mantenimiento_id)
+
+            if mantenimiento and mantenimiento.imagen_datos and mantenimiento.imagen_tipo:
+                # Usar la lógica existente en el modelo (o replicarla aquí)
+                # return mantenimiento.get_imagen_base64() # Si el método existe y funciona
+
+                # O replicar la lógica aquí:
+                b64_data = base64.b64encode(mantenimiento.imagen_datos).decode('utf-8')
+                return f"data:{mantenimiento.imagen_tipo};base64,{b64_data}"
+            else:
+                return None # No encontrado o sin imagen
+
+        except Exception as e:
+            print(f"Error en obtener_imagen_mantenimiento_base64 para ID {mantenimiento_id}: {e}")
+            traceback.print_exc()
+            return None # Devolver None en caso de error
+    
     def crear_umbral_configuracion(self, nombre, es_global, temp_min, temp_max, hum_min, hum_max, aire_id=None, notificar_activo=True):
         """
         Crea una nueva configuración de umbrales para temperatura y humedad.
