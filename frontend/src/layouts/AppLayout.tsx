@@ -88,7 +88,7 @@ const AppLayout: React.FC = () => {
         {/* Top Navbar */}
         <Navbar bg="light" expand="lg" className="mb-4 shadow-sm">
           <Container fluid>
-            <Navbar.Brand>Sistema de Monitoreo AC</Navbar.Brand>
+            <Navbar.Brand>Sistema de Monitoreo AC DCCE</Navbar.Brand>
             <Navbar.Toggle aria-controls="basic-navbar-nav" />
             <Navbar.Collapse id="basic-navbar-nav" className="justify-content-end">
               <Dropdown align="end">

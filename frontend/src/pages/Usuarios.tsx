@@ -49,6 +49,7 @@ const Usuarios: React.FC = () => {
     rol: 'operador' // Default role for new users
   });
   const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
+  const [isAddingUser, setIsAddingUser] = useState<boolean>(false);
 
   // Verificar si el usuario es administrador
   const isAdmin = user?.rol === 'admin';
@@ -204,18 +205,34 @@ const Usuarios: React.FC = () => {
   // Enviar formulario de CREACIÓN
   const handleNewUserSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError(null); // Clear previous errors
+    setError(null); // Limpiar errores previos
+    setIsAddingUser(true); // Iniciar estado de carga
 
-    // Use the register function from context which handles loading/error state
-    const success = await registerUser(newUserData);
+    // Define el nuevo endpoint (ajusta esto a tu ruta real)
+    const adminCreateUserEndpoint = '/admin/users'; 
 
-    if (success) {
-      setShowAddModal(false);
-      fetchUsuarios(); // Refetch the user list to include the new user with their ID
-    } else {
-      // Error state is handled by the context, but you could add specific logic here if needed
-      console.error("Registration failed (handled by context)");
-      // setError is likely already set by the context's register function
+    try {
+      // Llama directamente al nuevo endpoint con los datos del nuevo usuario
+      const response = await api.post(adminCreateUserEndpoint, newUserData);
+
+      // Asumiendo que la respuesta es exitosa (status 2xx)
+      // Puedes verificar response.status o response.data si tu API devuelve algo específico
+      console.log('Usuario creado exitosamente:', response.data);
+
+      setShowAddModal(false); // Cierra el modal
+      fetchUsuarios(); // Refresca la lista de usuarios para incluir el nuevo
+
+    } catch (err: any) {
+      console.error('Error al crear usuario:', err);
+      // Establece un mensaje de error más específico si es posible
+      const errorMessage = err.response?.data?.mensaje || // Mensaje específico del backend
+                           err.response?.data?.message || // Otro posible campo de mensaje
+                           'Error al crear el usuario. Verifique los datos o contacte al administrador.'; // Mensaje genérico
+      setError(errorMessage);
+      // No cierres el modal en caso de error, para que el usuario pueda corregir
+
+    } finally {
+      setIsAddingUser(false); // Finalizar estado de carga
     }
   };
 
@@ -500,12 +517,12 @@ const Usuarios: React.FC = () => {
       </Modal>
 
       {/* Modal de CREACIÓN */}
-      <Modal show={showAddModal} onHide={() => setShowAddModal(false)}>
-        <Modal.Header closeButton>
-          <Modal.Title>Agregar Nuevo Usuario</Modal.Title>
-        </Modal.Header>
-        <Form onSubmit={handleNewUserSubmit}>
-          <Modal.Body>
+      <Modal show={showAddModal} onHide={() => !isAddingUser && setShowAddModal(false)}> {/* Evita cerrar si está cargando */}
+    <Modal.Header closeButton>
+      <Modal.Title>Agregar Nuevo Usuario</Modal.Title>
+    </Modal.Header>
+    <Form onSubmit={handleNewUserSubmit}>
+      <Modal.Body>
             {/* Add form fields (Nombre, Apellido, Email, Username, Password, Rol) */}
             <Row>
               <Col md={6}>
@@ -592,12 +609,26 @@ const Usuarios: React.FC = () => {
 
           </Modal.Body>
           <Modal.Footer>
-            <Button variant="secondary" onClick={() => setShowAddModal(false)}>
-              Cancelar
-            </Button>
-            <Button variant="primary" type="submit">
-              Crear Usuario
-            </Button>
+          <Button variant="secondary" onClick={() => setShowAddModal(false)} disabled={isAddingUser}>
+          Cancelar
+        </Button>
+        <Button variant="primary" type="submit" disabled={isAddingUser}>
+          {isAddingUser ? (
+            <>
+              <Spinner
+                as="span"
+                animation="border"
+                size="sm"
+                role="status"
+                aria-hidden="true"
+                className="me-2"
+              />
+              Creando...
+            </>
+          ) : (
+            'Crear Usuario'
+          )}
+        </Button>
           </Modal.Footer>
         </Form>
       </Modal>
