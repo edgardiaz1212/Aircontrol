@@ -13,11 +13,11 @@ import api from "../services/api";
 import { useAppContext } from "../context/AppContext";
 
 // Importar los componentes extraídos
-import MantenimientoFilter from "../components/mantenimientos/MantenimientoFilter";
-import MantenimientosTable from "../components/mantenimientos/MantenimientosTable";
-import MantenimientoAddModal from "../components/mantenimientos/MantenimientoAddModal";
-import MantenimientoViewModal from "../components/mantenimientos/MantenimientoViewModal";
-import MantenimientoImagenModal from "../components/mantenimientos/MantenimientoImagenModal";
+import MantenimientoFilter from "../components/Mantenimientos/MantenimientoFilter";
+import MantenimientosTable from "../components/Mantenimientos/MantenimientosTable";
+import MantenimientoAddModal from "../components/Mantenimientos/MantenimientoAddModal";
+import MantenimientoViewModal from "../components/Mantenimientos/MantenimientoViewModal";
+import MantenimientoImagenModal from "../components/Mantenimientos/MantenimientoImagenModal";
 
 // Interfaces (pueden moverse a un archivo types.ts si se usan en varios lugares)
 interface Mantenimiento {
@@ -65,7 +65,7 @@ const Mantenimientos: React.FC = () => {
     descripcion: "",
     tecnico: "",
   });
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null!);
 
   // Verificar si el usuario puede agregar/eliminar mantenimientos
   const canEdit = user?.rol === "admin" || user?.rol === "supervisor";
