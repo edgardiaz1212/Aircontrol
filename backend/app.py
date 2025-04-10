@@ -246,8 +246,8 @@ def get_aires():
 @app.route('/api/aires', methods=['POST'])
 @jwt_required()
 def add_aire():
-    current_user = get_jwt_identity()
-    if current_user.get('rol') not in ['admin', 'supervisor']:
+    jwt_data = get_jwt()
+    if jwt_data.get('rol') not in ['admin', 'supervisor']:
         return jsonify({'success': False, 'mensaje': 'No tienes permiso para realizar esta acción'}), 403
     
     data = request.get_json()
@@ -268,8 +268,8 @@ def add_aire():
 @app.route('/api/aires/<int:aire_id>', methods=['PUT'])
 @jwt_required()
 def update_aire(aire_id):
-    current_user = get_jwt_identity()
-    if current_user.get('rol') not in ['admin', 'supervisor']:
+    jwt_data = get_jwt()
+    if jwt_data.get('rol') not in ['admin', 'supervisor']:
         return jsonify({'success': False, 'mensaje': 'No tienes permiso para realizar esta acción'}), 403
     
     data = request.get_json()
@@ -290,8 +290,8 @@ def update_aire(aire_id):
 @app.route('/api/aires/<int:aire_id>', methods=['DELETE'])
 @jwt_required()
 def delete_aire(aire_id):
-    current_user = get_jwt_identity()
-    if current_user.get('rol') not in ['admin', 'supervisor']:
+    jwt_data = get_jwt()
+    if jwt_data.get('rol') not in ['admin', 'supervisor']:
         return jsonify({'success': False, 'mensaje': 'No tienes permiso para realizar esta acción'}), 403
     
     data_manager.eliminar_aire(aire_id)
@@ -349,8 +349,8 @@ def add_lectura():
 @app.route('/api/lecturas/<int:lectura_id>', methods=['DELETE'])
 @jwt_required()
 def delete_lectura(lectura_id):
-    current_user = get_jwt_identity()
-    if current_user.get('rol') == 'operador':
+    jwt_data = get_jwt()
+    if jwt_data.get('rol') == 'operador':
         return jsonify({'success': False, 'mensaje': 'No tienes permiso para realizar esta acción'}), 403
     
     resultado = data_manager.eliminar_lectura(lectura_id)
@@ -423,8 +423,8 @@ def get_mantenimientos():
 @app.route('/api/mantenimientos', methods=['POST'])
 @jwt_required()
 def add_mantenimiento():
-    current_user = get_jwt_identity()
-    if current_user.get('rol') not in ['admin', 'supervisor']:
+    jwt_data = get_jwt()
+    if jwt_data.get('rol') not in ['admin', 'supervisor']:
         return jsonify({'success': False, 'mensaje': 'No tienes permiso para realizar esta acción'}), 403
     
     # Obtener datos del formulario
@@ -457,8 +457,8 @@ def add_mantenimiento():
 @app.route('/api/mantenimientos/<int:mantenimiento_id>', methods=['DELETE'])
 @jwt_required()
 def delete_mantenimiento(mantenimiento_id):
-    current_user = get_jwt_identity()
-    if current_user.get('rol') not in ['admin', 'supervisor']:
+    jwt_data = get_jwt()
+    if jwt_data.get('rol') not in ['admin', 'supervisor']:
         return jsonify({'success': False, 'mensaje': 'No tienes permiso para realizar esta acción'}), 403
     
     resultado = data_manager.eliminar_mantenimiento(mantenimiento_id)
@@ -503,8 +503,8 @@ def get_umbrales():
 @app.route('/api/umbrales', methods=['POST'])
 @jwt_required()
 def add_umbral():
-    current_user = get_jwt_identity()
-    if current_user.get('rol') not in ['admin', 'supervisor']:
+    jwt_data = get_jwt()
+    if jwt_data.get('rol') not in ['admin', 'supervisor']:
         return jsonify({'success': False, 'mensaje': 'No tienes permiso para realizar esta acción'}), 403
     
     data = request.get_json()
@@ -551,8 +551,8 @@ def add_umbral():
 @app.route('/api/umbrales/<int:umbral_id>', methods=['PUT'])
 @jwt_required()
 def update_umbral(umbral_id):
-    current_user = get_jwt_identity()
-    if current_user.get('rol') not in ['admin', 'supervisor']:
+    jwt_data = get_jwt()
+    if jwt_data.get('rol') not in ['admin', 'supervisor']:
         return jsonify({'success': False, 'mensaje': 'No tienes permiso para realizar esta acción'}), 403
     
     data = request.get_json()
