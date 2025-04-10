@@ -49,21 +49,24 @@ const Mantenimientos: React.FC = () => {
       try {
         setLoading(true);
         setError(null);
-        
-        // Cargar aires
+
+        // Cargar aires (CORREGIDO)
         const airesResponse = await api.get('/aires');
-        const airesData = airesResponse.data?.data || [];
+        // Accede directamente a .data, que es el array enviado por Flask
+        const airesData = airesResponse.data || [];
         setAires(airesData);
-        
-        // Cargar mantenimientos
+
+        // Cargar mantenimientos (CORREGIDO)
         let url = '/mantenimientos';
         if (filtroAire) {
           url += `?aire_id=${filtroAire}`;
         }
         const mantenimientosResponse = await api.get(url);
-        const mantenimientosData = mantenimientosResponse.data?.data || [];
-        
+        // Accede directamente a .data, que es el array enviado por Flask
+        const mantenimientosData = mantenimientosResponse.data || [];
+
         // Añadir información del aire a cada mantenimiento
+        // (Esta parte ya debería funcionar correctamente una vez que airesData tenga datos)
         const mantenimientosConDetalles = mantenimientosData.map((mantenimiento: Mantenimiento) => {
           const aire = airesData.find((a: AireAcondicionado) => a.id === mantenimiento.aire_id);
           return {
@@ -72,11 +75,13 @@ const Mantenimientos: React.FC = () => {
             ubicacion: aire?.ubicacion || 'Desconocida'
           };
         });
-        
+
         setMantenimientos(mantenimientosConDetalles);
       } catch (error) {
         console.error('Error al cargar datos:', error);
-        setError('Error al cargar los datos');
+        // Considera mostrar un error más específico si es posible
+        // Por ejemplo, verificar si error.response existe para errores de API
+        setError('Error al cargar los datos. Verifique la conexión con el servidor.');
       } finally {
         setLoading(false);
       }

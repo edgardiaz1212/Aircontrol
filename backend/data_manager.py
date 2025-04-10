@@ -7,6 +7,8 @@ from database import session, AireAcondicionado, Lectura, Mantenimiento, UmbralC
 from cryptography.fernet import Fernet
 import hashlib
 from sqlalchemy import func, distinct
+import traceback
+import sys
 
 class DataManager:
     def __init__(self):
@@ -398,19 +400,21 @@ class DataManager:
     
     def agregar_mantenimiento(self, aire_id, tipo_mantenimiento, descripcion, tecnico, imagen_file=None):
         """
-        Agrega un nuevo registro de mantenimiento a la base de datos.
-        
+        Agrega un nuevo registro de mantenimiento a la base de datos. Maneja errores.
+
         Args:
             aire_id: ID del aire acondicionado
             tipo_mantenimiento: Tipo de mantenimiento realizado
             descripcion: Descripción detallada del mantenimiento
             tecnico: Nombre del técnico que realizó el mantenimiento
-            imagen_file: Archivo de imagen subido (bytes y metadatos)
-            
+            imagen_file: Objeto FileStorage de Flask (opcional)
+
         Returns:
-            ID del nuevo mantenimiento registrado
+            ID del nuevo mantenimiento registrado o None si ocurre un error.
         """
-        # Crear nuevo registro de mantenimiento
+        print(f"Intentando agregar mantenimiento para aire_id: {aire_id}")
+        print(f"Archivo recibido: {imagen_file}")
+
         nuevo_mantenimiento = Mantenimiento(
             aire_id=aire_id,
             fecha=datetime.now(),
@@ -418,22 +422,36 @@ class DataManager:
             descripcion=descripcion,
             tecnico=tecnico
         )
-        
-        # Si se cargó una imagen, guardarla en la base de datos
-        if imagen_file is not None:
-            # Obtener bytes de la imagen
-            imagen_bytes = imagen_file.read()
-            
-            # Guardar datos de la imagen
-            nuevo_mantenimiento.imagen_nombre = imagen_file.name
-            nuevo_mantenimiento.imagen_tipo = imagen_file.type
-            nuevo_mantenimiento.imagen_datos = imagen_bytes
-        
-        # Guardar en la base de datos
-        session.add(nuevo_mantenimiento)
-        session.commit()
-        
-        return nuevo_mantenimiento.id
+
+        try:
+            # Si se cargó una imagen, procesarla y guardarla
+            if imagen_file and imagen_file.filename: # Verificar que hay archivo y tiene nombre
+                print(f"Procesando imagen: {imagen_file.filename}, tipo: {imagen_file.content_type}")
+
+                # Obtener bytes de la imagen
+                imagen_bytes = imagen_file.read()
+                print(f"Leídos {len(imagen_bytes)} bytes de la imagen.")
+
+                # Guardar datos de la imagen (usando los atributos correctos)
+                nuevo_mantenimiento.imagen_nombre = imagen_file.filename
+                nuevo_mantenimiento.imagen_tipo = imagen_file.content_type
+                nuevo_mantenimiento.imagen_datos = imagen_bytes # Asegúrate que la columna en BD sea BLOB/BYTEA
+
+            # Guardar en la base de datos
+            print("Añadiendo mantenimiento a la sesión...")
+            session.add(nuevo_mantenimiento)
+            print("Intentando hacer commit...")
+            session.commit()
+            print(f"Mantenimiento guardado con ID: {nuevo_mantenimiento.id}")
+
+            return nuevo_mantenimiento.id
+
+        except Exception as e:
+            # Si algo falla (lectura de archivo, commit a BD), hacer rollback
+            print(f"!!! ERROR en agregar_mantenimiento: {e}", file=sys.stderr)
+            traceback.print_exc() # Imprime el traceback completo en la consola del servidor
+            session.rollback() # Deshacer cambios en la sesión actual
+            return None # Indicar que hubo un error
     
     def obtener_mantenimientos(self, aire_id=None):
         """
