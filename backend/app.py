@@ -701,6 +701,54 @@ def update_usuario(usuario_id):
         print(f"Error in update_usuario: {str(e)}")
         return jsonify({'success': False, 'mensaje': 'Error interno del servidor'}), 500
 
+# --- NUEVA RUTA PARA EL RESUMEN DEL DASHBOARD ---
+@app.route('/api/dashboard/resumen', methods=['GET'])
+@jwt_required() # Asegúrate de que el usuario esté autenticado para ver el dashboard
+def get_dashboard_resumen():
+    try:
+        # 1. Obtener los totales (necesitarás métodos en DataManager para esto)
+        total_aires = data_manager.contar_aires() # Ejemplo, crea este método si no existe
+        total_lecturas = data_manager.contar_lecturas() # Ejemplo
+        total_mantenimientos = data_manager.contar_mantenimientos() # Ejemplo
+        
+        # 2. Obtener el número de alertas (esto puede ser más complejo)
+        #    Podrías tener una tabla de alertas o calcularlas basado en umbrales
+        #    Por ahora, un valor placeholder:
+        alertas_activas = data_manager.contar_alertas_activas() # Ejemplo
+
+        # 3. Obtener las últimas N lecturas (necesitarás un método en DataManager)
+        #    Este método debería devolver las lecturas más recientes, incluyendo
+        #    el nombre y ubicación del aire asociado.
+        ultimas_lecturas_df = data_manager.obtener_ultimas_lecturas_con_info_aire(limite=5) # Ejemplo, limita a 5
+
+        ultimas_lecturas_lista = []
+        if not ultimas_lecturas_df.empty:
+            for _, row in ultimas_lecturas_df.iterrows():
+                ultimas_lecturas_lista.append({
+                    'id': int(row['id']), # ID de la lectura
+                    'aire_id': int(row['aire_id']),
+                    'nombre': row['nombre_aire'], # Asegúrate que tu método devuelva esto
+                    'ubicacion': row['ubicacion_aire'], # Asegúrate que tu método devuelva esto
+                    'temperatura': float(row['temperatura']),
+                    'humedad': float(row['humedad']),
+                    'fecha': row['fecha'].strftime('%Y-%m-%d %H:%M:%S') # Formatea la fecha como string
+                })
+
+        # 4. Construir la respuesta
+        resumen_data = {
+            'totalAires': total_aires,
+            'totalLecturas': total_lecturas,
+            'totalMantenimientos': total_mantenimientos,
+            'alertas': alertas_activas,
+            'ultimasLecturas': ultimas_lecturas_lista
+        }
+
+        return jsonify(resumen_data)
+
+    except Exception as e:
+        print(f"Error al generar resumen del dashboard: {e}")
+        # Considera devolver un error más específico si es posible
+        return jsonify({'success': False, 'mensaje': 'Error interno al obtener el resumen del dashboard'}), 500
 
 # Iniciar servidor
 if __name__ == '__main__':
