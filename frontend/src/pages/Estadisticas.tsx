@@ -15,12 +15,12 @@ import api from '../services/api';
 import { FiBarChart2, FiMapPin, FiWind } from 'react-icons/fi';
 import { format } from 'date-fns';
 
-// Importar los nuevos componentes
+// Importar los componentes hijos
 import EstadisticasGeneral from '../components/estadisticas/EstadisticasGeneral';
 import EstadisticasPorAire from '../components/estadisticas/EstadisticasPorAire';
 import EstadisticasPorUbicacion from '../components/estadisticas/EstadisticasPorUbicacion';
 
-// Registrar componentes de ChartJS (solo necesario una vez en la aplicación, usualmente en App.tsx o index.tsx, pero aquí está bien por ahora)
+// Registrar componentes de ChartJS
 ChartJS.register(
   CategoryScale,
   LinearScale,
@@ -32,7 +32,7 @@ ChartJS.register(
   Legend
 );
 
-// --- Interfaces (Exportarlas para que los componentes hijos puedan importarlas) ---
+// --- Interfaces (Exportadas para uso en componentes hijos) ---
 export interface AireAcondicionado {
   id: number;
   nombre: string;
@@ -42,11 +42,12 @@ export interface AireAcondicionado {
 export interface Lectura {
   id: number;
   aire_id: number;
-  fecha: string; // Assuming ISO string format from backend
+  fecha: string; // Asumiendo formato ISO o compatible con new Date()
   temperatura: number;
   humedad: number;
 }
 
+// Interfaz para estadísticas generales (estructura plana)
 export interface EstadisticasGenerales {
   temperatura_promedio: number;
   temperatura_maxima: number;
@@ -55,53 +56,70 @@ export interface EstadisticasGenerales {
   humedad_maxima: number;
   humedad_minima: number;
   total_lecturas: number;
-  variacion_temperatura?: number; // Opcional si no viene del backend general
-  variacion_humedad?: number;   // Opcional si no viene del backend general
+  // Podrían añadirse desviaciones si el backend las provee
+  temperatura_desviacion?: number;
+  humedad_desviacion?: number;
 }
 
+// Interfaz para estadísticas por aire (estructura plana, hereda/extiende la general)
 export interface EstadisticasAire extends EstadisticasGenerales {
   aire_id: number;
   nombre: string;
   ubicacion: string;
-  variacion_temperatura: number; // Asumiendo que el backend sí lo provee por aire
-  variacion_humedad: number;   // Asumiendo que el backend sí lo provee por aire
+  variacion_temperatura: number; // Calculada en el frontend
+  variacion_humedad: number;   // Calculada en el frontend
 }
 
+// Interfaz para estadísticas por ubicación
 export interface EstadisticasUbicacion {
   ubicacion: string;
-  aires: number;
+  num_aires: number; // Cambiado de 'aires' a 'num_aires' para claridad
   temperatura_promedio: number;
+  temperatura_min: number;
+  temperatura_max: number;
+  temperatura_std: number;
   humedad_promedio: number;
+  humedad_min: number;
+  humedad_max: number;
+  humedad_std: number;
+  lecturas_totales: number;
 }
 
+// Interfaz para datos de gráficos
 export interface ChartDataType {
   labels: string[];
   datasets: {
     label: string;
-    data: number[];
+    data: (number | null)[]; // Permitir null para datos faltantes
     borderColor?: string;
-    backgroundColor?: string;
+    backgroundColor?: string | string[]; // Permitir array para barras
     tension?: number;
+    borderWidth?: number;
+    borderDash?: number[];
+    pointRadius?: number;
+    fill?: boolean;
   }[];
 }
 
+// Interfaz para umbrales
 export interface UmbralConfiguracion {
   id: number;
   nombre: string;
   es_global: boolean;
-  aire_id?: number | null; // Nullable si es global
+  aire_id?: number | null;
   temp_min: number;
   temp_max: number;
   hum_min: number;
   hum_max: number;
   notificar_activo: boolean;
-  // Puedes añadir aire_nombre, ubicacion si vienen del backend
+  aire_nombre?: string;
+  ubicacion?: string;
 }
 
 
-// --- Componente Estadisticas (Contenedor) ---
+// --- Componente Estadisticas (Contenedor Principal) ---
 const Estadisticas: React.FC = () => {
-  // --- State (Mantenido en el componente padre) ---
+  // --- Estados ---
   const [aires, setAires] = useState<AireAcondicionado[]>([]);
   const [aireSeleccionado, setAireSeleccionado] = useState<number | null>(null);
   const [ubicaciones, setUbicaciones] = useState<string[]>([]);
@@ -111,7 +129,6 @@ const Estadisticas: React.FC = () => {
   const [estadisticasAire, setEstadisticasAire] = useState<EstadisticasAire | null>(null);
   const [estadisticasUbicacion, setEstadisticasUbicacion] = useState<EstadisticasUbicacion[]>([]);
 
-  // State for chart data
   const [graficoGeneralTemp, setGraficoGeneralTemp] = useState<ChartDataType | null>(null);
   const [graficoGeneralHum, setGraficoGeneralHum] = useState<ChartDataType | null>(null);
   const [graficoComparativoTemp, setGraficoComparativoTemp] = useState<ChartDataType | null>(null);
@@ -119,92 +136,97 @@ const Estadisticas: React.FC = () => {
   const [graficoAireTemp, setGraficoAireTemp] = useState<ChartDataType | null>(null);
   const [graficoAireHum, setGraficoAireHum] = useState<ChartDataType | null>(null);
 
-  // Loading and Error States
-  const [loadingGeneral, setLoadingGeneral] = useState<boolean>(true); // Para aires y stats generales iniciales
-  const [loadingAire, setLoadingAire] = useState<boolean>(false); // Solo para datos específicos del aire
-  const [loadingUbicacion, setLoadingUbicacion] = useState<boolean>(true); // Para stats de ubicación iniciales
-  const [loadingChartsGeneral, setLoadingChartsGeneral] = useState<boolean>(true); // Para gráficos generales y comparativos
-  const [loadingChartsAire, setLoadingChartsAire] = useState<boolean>(false); // Solo para gráficos específicos del aire
+  const [loadingGeneral, setLoadingGeneral] = useState<boolean>(true);
+  const [loadingAire, setLoadingAire] = useState<boolean>(false);
+  const [loadingUbicacion, setLoadingUbicacion] = useState<boolean>(true);
+  const [loadingChartsGeneral, setLoadingChartsGeneral] = useState<boolean>(true);
+  const [loadingChartsAire, setLoadingChartsAire] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
-  const [umbrales, setUmbrales] = useState<UmbralConfiguracion[]>([]); // Estado para guardar umbrales
-  const [loadingUmbrales, setLoadingUmbrales] = useState<boolean>(true); // Estado de carga para umbrales
+  const [umbrales, setUmbrales] = useState<UmbralConfiguracion[]>([]);
+  const [loadingUmbrales, setLoadingUmbrales] = useState<boolean>(true);
 
+  // --- Funciones Auxiliares para Procesar Datos ---
 
-
-  // --- Helper Functions (Mantenidas en el padre para procesar datos antes de pasarlos) ---
+  // Procesa lecturas para gráficos de línea (temperatura y humedad)
   const procesarLecturasParaGrafico = useCallback((
     lecturas: Lectura[],
-    umbralesAplicables: UmbralConfiguracion[] // <-- Aceptar umbrales
+    umbralesAplicables: UmbralConfiguracion[]
   ): { tempChart: ChartDataType, humChart: ChartDataType } | null => {
-    if (!lecturas || lecturas.length === 0) {
-      return null;
-    }
-    // Ordenar y limitar lecturas (como antes)
+    if (!lecturas || lecturas.length === 0) return null;
+
     const sortedLecturas = [...lecturas].sort((a, b) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime());
-    const limitedLecturas = sortedLecturas.slice(-50);
+    const limitedLecturas = sortedLecturas.slice(-50); // Limitar a las últimas 50
 
     const labels = limitedLecturas.map(l => format(new Date(l.fecha), 'HH:mm'));
     const tempData = limitedLecturas.map(l => l.temperatura);
     const humData = limitedLecturas.map(l => l.humedad);
 
-    // --- Lógica para añadir datasets de umbrales ---
-    // Encontrar los límites más restrictivos si hay múltiples umbrales aplicables
-    // (Podrías hacer esto más sofisticado, aquí tomamos el primero encontrado activo)
+    // Encontrar umbrales más restrictivos (podría mejorarse si hay múltiples del mismo tipo)
     const tempMinThreshold = umbralesAplicables.find(u => u.temp_min !== undefined)?.temp_min;
     const tempMaxThreshold = umbralesAplicables.find(u => u.temp_max !== undefined)?.temp_max;
     const humMinThreshold = umbralesAplicables.find(u => u.hum_min !== undefined)?.hum_min;
     const humMaxThreshold = umbralesAplicables.find(u => u.hum_max !== undefined)?.hum_max;
 
-    // Función helper para crear un dataset de umbral (línea horizontal)
+    // Helper para crear datasets de umbrales
     const createThresholdDataset = (label: string, value: number | undefined, color: string, dataLength: number) => {
-      if (value === undefined || dataLength === 0) return null; // No añadir si no hay valor o datos
+      if (value === undefined || dataLength === 0) return null;
       return {
         label: label,
-        data: Array(dataLength).fill(value), // Array con el mismo valor
+        data: Array(dataLength).fill(value),
         borderColor: color,
-        borderWidth: 1.5, // Un poco más grueso
-        borderDash: [5, 5], // Línea discontinua
-        pointRadius: 0, // Sin puntos en la línea de umbral
+        borderWidth: 1.5,
+        borderDash: [5, 5],
+        pointRadius: 0,
         fill: false,
-        tension: 0 // Línea recta
+        tension: 0
       };
     };
 
-    // Crear datasets para Temperatura (incluyendo umbrales si existen)
+    // Datasets de Temperatura
     const tempDatasets = [
       { label: 'Temperatura °C', data: tempData, borderColor: 'rgba(255, 99, 132, 1)', backgroundColor: 'rgba(255, 99, 132, 0.2)', tension: 0.1 },
-      createThresholdDataset('Temp Mín', tempMinThreshold, 'rgba(255, 159, 64, 0.8)', labels.length), // Naranja discontinuo
-      createThresholdDataset('Temp Máx', tempMaxThreshold, 'rgba(255, 0, 0, 0.8)', labels.length)      // Rojo discontinuo
-    ].filter(ds => ds !== null) as ChartDataType['datasets']; // Filtrar nulls y asegurar tipo
-
-    // Crear datasets para Humedad (incluyendo umbrales si existen)
-    const humDatasets = [
-       { label: 'Humedad %', data: humData, borderColor: 'rgba(54, 162, 235, 1)', backgroundColor: 'rgba(54, 162, 235, 0.2)', tension: 0.1 },
-       createThresholdDataset('Hum Mín', humMinThreshold, 'rgba(75, 192, 192, 0.8)', labels.length), // Verde azulado discontinuo
-       createThresholdDataset('Hum Máx', humMaxThreshold, 'rgba(153, 102, 255, 0.8)', labels.length) // Púrpura discontinuo
+      createThresholdDataset('Temp Mín', tempMinThreshold, 'rgba(255, 159, 64, 0.8)', labels.length),
+      createThresholdDataset('Temp Máx', tempMaxThreshold, 'rgba(255, 0, 0, 0.8)', labels.length)
     ].filter(ds => ds !== null) as ChartDataType['datasets'];
 
-    // Construir objetos de gráfico
-    const tempChart: ChartDataType = { labels, datasets: tempDatasets };
-    const humChart: ChartDataType = { labels, datasets: humDatasets };
+    // Datasets de Humedad
+    const humDatasets = [
+       { label: 'Humedad %', data: humData, borderColor: 'rgba(54, 162, 235, 1)', backgroundColor: 'rgba(54, 162, 235, 0.2)', tension: 0.1 },
+       createThresholdDataset('Hum Mín', humMinThreshold, 'rgba(75, 192, 192, 0.8)', labels.length),
+       createThresholdDataset('Hum Máx', humMaxThreshold, 'rgba(153, 102, 255, 0.8)', labels.length)
+    ].filter(ds => ds !== null) as ChartDataType['datasets'];
 
-    return { tempChart, humChart };
-  }, []);
+    return {
+      tempChart: { labels, datasets: tempDatasets },
+      humChart: { labels, datasets: humDatasets }
+    };
+  }, []); // Dependencias vacías si no usa estado/props externos
+
+  // Procesa estadísticas por ubicación para gráficos de barras comparativos
   const procesarUbicacionesParaGrafico = useCallback((stats: EstadisticasUbicacion[]): { tempChart: ChartDataType, humChart: ChartDataType } | null => {
-    if (!stats || stats.length === 0) {
-      return null;
-    }
+    if (!stats || stats.length === 0) return null;
+
     const labels = stats.map(s => s.ubicacion);
     const tempAvgData = stats.map(s => s.temperatura_promedio);
     const humAvgData = stats.map(s => s.humedad_promedio);
+
+    // Colores para las barras (puedes definir más si tienes muchas ubicaciones)
+    const backgroundColors = [
+      'rgba(255, 99, 132, 0.7)',
+      'rgba(54, 162, 235, 0.7)',
+      'rgba(255, 206, 86, 0.7)',
+      'rgba(75, 192, 192, 0.7)',
+      'rgba(153, 102, 255, 0.7)',
+      'rgba(255, 159, 64, 0.7)',
+    ];
 
     const tempChart: ChartDataType = {
       labels,
       datasets: [{
         label: 'Temperatura Promedio °C',
         data: tempAvgData,
-        backgroundColor: 'rgba(255, 99, 132, 0.7)'
+        backgroundColor: backgroundColors.slice(0, labels.length) // Asigna colores
       }]
     };
     const humChart: ChartDataType = {
@@ -212,15 +234,15 @@ const Estadisticas: React.FC = () => {
       datasets: [{
         label: 'Humedad Promedio %',
         data: humAvgData,
-        backgroundColor: 'rgba(54, 162, 235, 0.7)'
+        backgroundColor: backgroundColors.slice(0, labels.length).reverse() // Usa colores diferentes o en otro orden
       }]
     };
     return { tempChart, humChart };
-  }, []);
+  }, []); // Dependencias vacías
 
-  // --- Effects (Mantenidos en el padre para fetching) ---
+  // --- Efectos para Cargar Datos ---
 
-  // Initial Load
+  // Carga inicial de datos generales, aires, ubicaciones, umbrales y gráficos generales/comparativos
   useEffect(() => {
     const fetchDatosIniciales = async () => {
       setLoadingGeneral(true);
@@ -230,60 +252,56 @@ const Estadisticas: React.FC = () => {
       setError(null);
 
       try {
+        // Peticiones en paralelo
         const [resAires, resEstGen, resEstUbic, resLecturasGen, resUmbrales] = await Promise.all([
           api.get('/aires'),
           api.get('/estadisticas/general'),
           api.get('/estadisticas/ubicacion'),
-          api.get('/lecturas?limit=50'),
-          api.get('/umbrales') 
+          api.get('/lecturas?limit=50'), // Últimas 50 lecturas para gráfico general
+          api.get('/umbrales')
         ]);
 
-        // Aires y Ubicaciones
+        // Procesar Aires y Ubicaciones
         const airesData = resAires.data?.data || resAires.data || [];
         setAires(airesData);
         const ubicacionesUnicas = Array.from(new Set(airesData.map((aire: AireAcondicionado) => aire.ubicacion)));
         setUbicaciones(ubicacionesUnicas as string[]);
-        setLoadingGeneral(false); // Aires cargados
+        setLoadingGeneral(false);
 
-        // Stats Generales
+        // Procesar Estadísticas Generales
         setEstadisticasGenerales(resEstGen.data || null);
 
-        // Stats Ubicacion
+        // Procesar Estadísticas por Ubicación
         const ubicacionData = resEstUbic.data || [];
         setEstadisticasUbicacion(ubicacionData);
-        setLoadingUbicacion(false); // Ubicaciones cargadas
+        setLoadingUbicacion(false);
 
-        //Procesar Umbrales
-        const umbralesData = resUmbrales.data?.data || []; // Asumiendo que la API devuelve { data: [...] }
+        // Procesar Umbrales
+        const umbralesData = resUmbrales.data?.data || [];
         setUmbrales(umbralesData);
-        setLoadingUmbrales(false); // Umbrales cargado
+        setLoadingUmbrales(false);
 
-// Filtrar umbrales globales activos para el gráfico general
-const umbralesGlobalesActivos = umbralesData.filter(
-  (u: UmbralConfiguracion) => u.es_global && u.notificar_activo
-);
-
-        // Gráficos Generales (Línea)
-        const lecturasGenerales = resLecturasGen.data?.data || [];
-        const generalChartData = procesarLecturasParaGrafico(lecturasGenerales, umbralesGlobalesActivos); // Pasar los umbrales globales activos
+        // Procesar Gráficos Generales (Línea)
+        const umbralesGlobalesActivos = umbralesData.filter(
+          (u: UmbralConfiguracion) => u.es_global && u.notificar_activo
+        );
+        const lecturasGenerales = resLecturasGen.data?.data || []; // Asegúrate que la API devuelve { data: [...] }
+        const generalChartData = procesarLecturasParaGrafico(lecturasGenerales, umbralesGlobalesActivos);
         setGraficoGeneralTemp(generalChartData?.tempChart || null);
         setGraficoGeneralHum(generalChartData?.humChart || null);
 
-        // Gráficos Comparativos (Barra)
+        // Procesar Gráficos Comparativos (Barra)
         const comparativoChartData = procesarUbicacionesParaGrafico(ubicacionData);
         setGraficoComparativoTemp(comparativoChartData?.tempChart || null);
         setGraficoComparativoHum(comparativoChartData?.humChart || null);
-        
-        
-      
 
-        setLoadingChartsGeneral(false); // Gráficos generales cargados
+        setLoadingChartsGeneral(false);
 
-        
-
-      } catch (err) {
+      } catch (err: any) {
         console.error('Error al cargar datos iniciales:', err);
-        setError('Error al cargar los datos iniciales de estadísticas.');
+        const message = err.response?.data?.mensaje || 'Error al cargar los datos iniciales de estadísticas.';
+        setError(message);
+        // Establecer estados de carga a false en caso de error
         setLoadingGeneral(false);
         setLoadingUbicacion(false);
         setLoadingChartsGeneral(false);
@@ -291,80 +309,110 @@ const umbralesGlobalesActivos = umbralesData.filter(
       }
     };
     fetchDatosIniciales();
-  }, [procesarLecturasParaGrafico, procesarUbicacionesParaGrafico]); // Incluir helpers si usan estado o props
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [procesarLecturasParaGrafico, procesarUbicacionesParaGrafico]); // Dependencias de useCallback
 
-  // Load Data for Selected Aire
+  // Carga de datos específicos cuando se selecciona un aire
   useEffect(() => {
     const fetchDatosAire = async () => {
+      // Si no hay aire seleccionado, limpiar datos y salir
       if (aireSeleccionado === null) {
-        // Limpiar datos específicos del aire si no hay selección
         setEstadisticasAire(null);
         setGraficoAireTemp(null);
         setGraficoAireHum(null);
-        return; // No continuar con la petición API
+        return;
       }
 
+      // Indicar carga
       setLoadingAire(true);
       setLoadingChartsAire(true);
       setError(null);
-      // ... (limpiar estados específicos del aire) ...
 
       try {
+        // Peticiones en paralelo para stats y lecturas del aire
         const [resStatsAire, resLecturasAire] = await Promise.all([
           api.get(`/estadisticas/aire/${aireSeleccionado}`),
-          api.get(`/lecturas?aire_id=${aireSeleccionado}&limit=50`) // O las últimas N
+          api.get(`/lecturas?aire_id=${aireSeleccionado}&limit=50`) // Últimas 50 lecturas para este aire
         ]);
 
-        // ... (procesamiento de stats del aire) ...
-        setLoadingAire(false);
+        // Procesar Estadísticas del Aire
+        const statsData = resStatsAire.data; // Asume estructura plana devuelta por el backend
+        if (statsData) {
+           const aireInfo = aires.find(a => a.id === aireSeleccionado);
+           // Calcular variaciones en el frontend
+           const variacionTemp = (statsData.temperatura_maxima !== undefined && statsData.temperatura_minima !== undefined)
+                                 ? Math.abs(statsData.temperatura_maxima - statsData.temperatura_minima)
+                                 : 0;
+           const variacionHum = (statsData.humedad_maxima !== undefined && statsData.humedad_minima !== undefined)
+                                ? Math.abs(statsData.humedad_maxima - statsData.humedad_minima)
+                                : 0;
 
-        // --- Procesar Gráficos del Aire con Umbrales ---
-        // Filtrar umbrales aplicables (globales activos + específico activo)
+           setEstadisticasAire({
+               ...statsData,
+               aire_id: aireSeleccionado,
+               nombre: aireInfo?.nombre || 'Desconocido',
+               ubicacion: aireInfo?.ubicacion || 'Desconocida',
+               variacion_temperatura: parseFloat(variacionTemp.toFixed(2)), // Asegurar número y formato
+               variacion_humedad: parseFloat(variacionHum.toFixed(2)),     // Asegurar número y formato
+           });
+        } else {
+           setEstadisticasAire(null); // Si no hay datos de stats
+        }
+        setLoadingAire(false); // Stats del aire cargadas
+
+        // Procesar Gráficos del Aire
         const umbralesParaAire = umbrales.filter(u =>
             u.notificar_activo && (u.es_global || u.aire_id === aireSeleccionado)
         );
-
-        const lecturasAireData = resLecturasAire.data?.data || [];
-        const aireChartData = procesarLecturasParaGrafico(lecturasAireData, umbralesParaAire); // Pasar umbrales filtrados
+        const lecturasAireData = resLecturasAire.data?.data || []; // Asegúrate que la API devuelve { data: [...] }
+        const aireChartData = procesarLecturasParaGrafico(lecturasAireData, umbralesParaAire);
         setGraficoAireTemp(aireChartData?.tempChart || null);
         setGraficoAireHum(aireChartData?.humChart || null);
-        setLoadingChartsAire(false);
+        setLoadingChartsAire(false); // Gráficos del aire cargados
 
-      } catch (err) {
-        // ... (manejo de errores) ...
+      } catch (err: any) {
+        console.error(`Error al cargar datos para el aire ${aireSeleccionado}:`, err);
+        const message = err.response?.data?.mensaje || `Error al cargar datos para el aire seleccionado.`;
+        setError(message);
+        // Limpiar estados y carga en caso de error
+        setEstadisticasAire(null);
+        setGraficoAireTemp(null);
+        setGraficoAireHum(null);
         setLoadingAire(false);
         setLoadingChartsAire(false);
       }
     };
-    // Solo ejecutar si los umbrales ya se cargaron para evitar errores
-    if (!loadingUmbrales) {
+
+    // Ejecutar solo si los umbrales y los aires ya se cargaron
+    if (!loadingUmbrales && !loadingGeneral) {
         fetchDatosAire();
     }
-  // Añadir 'umbrales' y 'loadingUmbrales' a las dependencias
-  }, [aireSeleccionado, aires, procesarLecturasParaGrafico, umbrales, loadingUmbrales]);
+  // Dependencias: se ejecuta cuando cambia el aire seleccionado o cuando se cargan los umbrales/aires iniciales
+  }, [aireSeleccionado, aires, umbrales, loadingUmbrales, loadingGeneral, procesarLecturasParaGrafico]);
 
-  // --- JSX (Simplificado usando los componentes hijos) ---
+  // --- Renderizado ---
   return (
     <div>
       <h1 className="mb-4">Estadísticas</h1>
 
+      {/* Mensaje de Error General */}
       {error && (
         <Alert variant="danger" dismissible onClose={() => setError(null)}>
           {error}
         </Alert>
       )}
 
-      {/* Indicador de carga principal */}
-      {loadingGeneral && loadingUbicacion && (
+      {/* Indicador de Carga Principal */}
+      {(loadingGeneral || loadingUbicacion || loadingUmbrales) && (
         <div className="text-center p-5">
           <Spinner animation="border" variant="primary" />
           <p className="mt-3">Cargando datos iniciales...</p>
         </div>
       )}
 
-      {/* Mostrar Tabs solo después de la carga inicial */}
-      {!loadingGeneral && !loadingUbicacion && (
-        <Tabs defaultActiveKey="general" id="stats-tabs" className="mb-4" mountOnEnter>
+      {/* Contenido Principal (Tabs) - Mostrar solo después de carga inicial */}
+      {!loadingGeneral && !loadingUbicacion && !loadingUmbrales && (
+        <Tabs defaultActiveKey="general" id="stats-tabs" className="mb-4" mountOnEnter unmountOnExit>
           {/* Pestaña General */}
           <Tab eventKey="general" title={<><FiBarChart2 className="me-2" /> General</>}>
             <EstadisticasGeneral
@@ -384,13 +432,13 @@ const umbralesGlobalesActivos = umbralesData.filter(
             <EstadisticasPorAire
               aires={aires}
               aireSeleccionado={aireSeleccionado}
-              setAireSeleccionado={setAireSeleccionado} // Pasar la función para actualizar el estado
+              setAireSeleccionado={setAireSeleccionado} // Pasar la función para actualizar
               estadisticasAire={estadisticasAire}
               graficoAireTemp={graficoAireTemp}
               graficoAireHum={graficoAireHum}
-              loadingGeneral={loadingGeneral} // Para deshabilitar el select mientras cargan los aires
-              loadingAire={loadingAire} // Para mostrar spinner mientras cargan datos del aire
-              loadingChartsAire={loadingChartsAire} // Para los gráficos del aire
+              loadingGeneral={loadingGeneral} // Para deshabilitar select
+              loadingAire={loadingAire} // Para spinner de stats del aire
+              loadingChartsAire={loadingChartsAire} // Para spinner de gráficos del aire
             />
           </Tab>
 
@@ -399,7 +447,7 @@ const umbralesGlobalesActivos = umbralesData.filter(
             <EstadisticasPorUbicacion
               ubicaciones={ubicaciones}
               ubicacionSeleccionada={ubicacionSeleccionada}
-              setUbicacionSeleccionada={setUbicacionSeleccionada} // Pasar la función para actualizar el estado
+              setUbicacionSeleccionada={setUbicacionSeleccionada} // Pasar la función para actualizar
               estadisticasUbicacion={estadisticasUbicacion}
               loadingUbicacion={loadingUbicacion} // Para la tabla y el select
             />

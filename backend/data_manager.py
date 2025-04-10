@@ -208,49 +208,34 @@ class DataManager:
         return False
     
     def obtener_estadisticas_por_aire(self, aire_id):
-        # Consultar estadísticas de un aire específico desde la base de datos
-        result = session.query(
-            func.avg(Lectura.temperatura).label('temp_avg'),
-            func.min(Lectura.temperatura).label('temp_min'),
-            func.max(Lectura.temperatura).label('temp_max'),
-            func.stddev(Lectura.temperatura).label('temp_std'),
-            func.avg(Lectura.humedad).label('hum_avg'),
-            func.min(Lectura.humedad).label('hum_min'),
-            func.max(Lectura.humedad).label('hum_max'),
-            func.stddev(Lectura.humedad).label('hum_std')
-        ).filter(Lectura.aire_id == aire_id).first()
-        
-        # Si no hay lecturas, devolver valores predeterminados
+        result = session.query(...).filter(Lectura.aire_id == aire_id).first()
+
         if result.temp_avg is None:
             return {
-                'temperatura': {
-                    'promedio': 0,
-                    'minimo': 0,
-                    'maximo': 0,
-                    'desviacion': 0
-                },
-                'humedad': {
-                    'promedio': 0,
-                    'minimo': 0,
-                    'maximo': 0,
-                    'desviacion': 0
-                }
+                'temperatura_promedio': 0,
+                'temperatura_minima': 0,
+                'temperatura_maxima': 0,
+                'temperatura_desviacion': 0, # Añadir desviación si la interfaz la espera
+                'humedad_promedio': 0,
+                'humedad_minima': 0,
+                'humedad_maxima': 0,
+                'humedad_desviacion': 0, # Añadir desviación si la interfaz la espera
+                # 'variacion_temperatura': 0, # No calculado aquí
+                # 'variacion_humedad': 0,   # No calculado aquí
             }
-        
-        # Convertir a diccionario
+
+        # Convertir a diccionario con estructura PLANA
         return {
-            'temperatura': {
-                'promedio': round(result.temp_avg, 2) if result.temp_avg else 0,
-                'minimo': round(result.temp_min, 2) if result.temp_min else 0,
-                'maximo': round(result.temp_max, 2) if result.temp_max else 0,
-                'desviacion': round(result.temp_std, 2) if result.temp_std else 0
-            },
-            'humedad': {
-                'promedio': round(result.hum_avg, 2) if result.hum_avg else 0,
-                'minimo': round(result.hum_min, 2) if result.hum_min else 0,
-                'maximo': round(result.hum_max, 2) if result.hum_max else 0,
-                'desviacion': round(result.hum_std, 2) if result.hum_std else 0
-            }
+            'temperatura_promedio': round(result.temp_avg, 2) if result.temp_avg else 0,
+            'temperatura_minima': round(result.temp_min, 2) if result.temp_min else 0,
+            'temperatura_maxima': round(result.temp_max, 2) if result.temp_max else 0,
+            'temperatura_desviacion': round(result.temp_std, 2) if result.temp_std else 0, # Añadir desviación
+            'humedad_promedio': round(result.hum_avg, 2) if result.hum_avg else 0,
+            'humedad_minima': round(result.hum_min, 2) if result.hum_min else 0,
+            'humedad_maxima': round(result.hum_max, 2) if result.hum_max else 0,
+            'humedad_desviacion': round(result.hum_std, 2) if result.hum_std else 0, # Añadir desviación
+            # 'variacion_temperatura': round(result.temp_max - result.temp_min, 2) if result.temp_max is not None and result.temp_min is not None else 0, # O calcular aquí
+            # 'variacion_humedad': round(result.hum_max - result.hum_min, 2) if result.hum_max is not None and result.hum_min is not None else 0, # O calcular aquí
         }
     
     def obtener_estadisticas_generales(self):

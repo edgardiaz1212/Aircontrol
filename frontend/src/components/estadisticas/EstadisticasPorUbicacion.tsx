@@ -1,19 +1,14 @@
 import React from 'react';
 import { Card, Row, Col, Form, Spinner, Table } from 'react-bootstrap';
-import { FiMapPin, FiThermometer, FiDroplet } from 'react-icons/fi';
-
-interface EstadisticasUbicacion {
-  ubicacion: string;
-  aires: number; // Assuming backend provides this count
-  temperatura_promedio: number;
-  humedad_promedio: number;
-}
+import { FiMapPin, FiThermometer, FiDroplet, FiUsers, FiActivity } from 'react-icons/fi'; // Añadir iconos si se usan
+// Importar la interfaz correcta desde el componente padre
+import { EstadisticasUbicacion } from '../../pages/Estadisticas';
 
 interface EstadisticasPorUbicacionProps {
   ubicaciones: string[];
   ubicacionSeleccionada: string | null;
   setUbicacionSeleccionada: (ubicacion: string | null) => void;
-  estadisticasUbicacion: EstadisticasUbicacion[];
+  estadisticasUbicacion: EstadisticasUbicacion[]; // Usar la interfaz importada
   loadingUbicacion: boolean;
 }
 
@@ -26,6 +21,7 @@ const EstadisticasPorUbicacion: React.FC<EstadisticasPorUbicacionProps> = ({
 }) => {
   return (
     <div>
+      {/* Selector de Ubicación (sin cambios) */}
       <Row className="mb-4">
         <Col md={6}>
           <Form.Group>
@@ -33,7 +29,7 @@ const EstadisticasPorUbicacion: React.FC<EstadisticasPorUbicacionProps> = ({
             <Form.Select
               value={ubicacionSeleccionada || ''}
               onChange={e => setUbicacionSeleccionada(e.target.value || null)}
-              disabled={loadingUbicacion} // Disable while loading
+              disabled={loadingUbicacion}
             >
               <option value="">Todas las ubicaciones</option>
               {ubicaciones.map((ubicacion, index) => (
@@ -46,6 +42,7 @@ const EstadisticasPorUbicacion: React.FC<EstadisticasPorUbicacionProps> = ({
         </Col>
       </Row>
 
+      {/* Tabla de Estadísticas */}
       <Card className="dashboard-card">
         <Card.Header>Estadísticas por Ubicación</Card.Header>
         <Card.Body>
@@ -56,26 +53,32 @@ const EstadisticasPorUbicacion: React.FC<EstadisticasPorUbicacionProps> = ({
               <thead>
                 <tr>
                   <th>Ubicación</th>
-                  <th>Aires</th>
-                  <th>Temp. Promedio</th>
-                  <th>Hum. Promedio</th>
+                  <th><FiUsers className="me-1" />Aires</th>
+                  <th><FiThermometer className="me-1 text-danger" />Temp. Prom.</th>
+                  <th>Temp. Mín.</th>
+                  <th>Temp. Máx.</th>
+                  <th><FiDroplet className="me-1 text-primary" />Hum. Prom.</th>
+                  <th>Hum. Mín.</th>
+                  <th>Hum. Máx.</th>
+                  <th><FiActivity className="me-1" />Lecturas</th>
                 </tr>
               </thead>
               <tbody>
                 {estadisticasUbicacion
+                  // Filtrar si hay una ubicación seleccionada
                   .filter(e => !ubicacionSeleccionada || e.ubicacion === ubicacionSeleccionada)
                   .map((est, index) => (
                     <tr key={index}>
-                      <td>{est.ubicacion}</td>
-                      <td>{est.aires ?? 'N/A'}</td> {/* Display count if available */}
-                      <td>
-                        <FiThermometer className="me-1 text-danger" />
-                        {est.temperatura_promedio?.toFixed(1) ?? 'N/A'} °C
-                      </td>
-                      <td>
-                        <FiDroplet className="me-1 text-primary" />
-                        {est.humedad_promedio?.toFixed(1) ?? 'N/A'} %
-                      </td>
+                      <td><FiMapPin className="me-1" />{est.ubicacion}</td>
+                      {/* Usar la propiedad correcta: num_aires */}
+                      <td>{est.num_aires ?? 'N/A'}</td>
+                      <td>{est.temperatura_promedio?.toFixed(1) ?? 'N/A'} °C</td>
+                      <td>{est.temperatura_min?.toFixed(1) ?? 'N/A'} °C</td>
+                      <td>{est.temperatura_max?.toFixed(1) ?? 'N/A'} °C</td>
+                      <td>{est.humedad_promedio?.toFixed(1) ?? 'N/A'} %</td>
+                      <td>{est.humedad_min?.toFixed(1) ?? 'N/A'} %</td>
+                      <td>{est.humedad_max?.toFixed(1) ?? 'N/A'} %</td>
+                      <td>{est.lecturas_totales ?? 'N/A'}</td>
                     </tr>
                   ))
                 }
