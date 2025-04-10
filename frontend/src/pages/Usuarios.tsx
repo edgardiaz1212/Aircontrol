@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Card, Table, Button, Modal, Form, Row, Col, Spinner, Alert, Badge } from 'react-bootstrap';
 import { FiEdit, FiCheckCircle, FiUserX, FiUser, FiUsers, FiMail, FiCalendar, FiClock, FiShield, FiCheck, FiX } from 'react-icons/fi';
-import axios from 'axios';
+import api from '../services/api';
 import { useAppContext } from '../context/AppContext';
 
 interface Usuario {
@@ -43,7 +43,7 @@ const Usuarios: React.FC = () => {
         setLoading(true);
         setError(null);
         
-        const response = await axios.get('/usuarios');
+        const response = await api.get('/usuarios');
         setUsuarios(response.data);
       } catch (error) {
         console.error('Error al cargar usuarios:', error);
@@ -57,7 +57,7 @@ const Usuarios: React.FC = () => {
   }, [isAdmin]);
 
   // Manejar cambios en el formulario
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value, type } = e.target;
     
     if (type === 'checkbox') {
@@ -92,7 +92,7 @@ const Usuarios: React.FC = () => {
     if (!usuario) return;
 
     try {
-      await axios.put(`/usuarios/${id}`, {
+      await api.put(`/usuarios/${id}`, {
         ...usuario,
         activo: !activo
       });
@@ -113,7 +113,7 @@ const Usuarios: React.FC = () => {
     if (!selectedUserId) return;
     
     try {
-      await axios.put(`/usuarios/${selectedUserId}`, formData);
+      await api.put(`/usuarios/${selectedUserId}`, formData);
       
       setUsuarios(usuarios.map(u => 
         u.id === selectedUserId ? { ...u, ...formData } : u

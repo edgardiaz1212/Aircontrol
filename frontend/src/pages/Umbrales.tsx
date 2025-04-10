@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Card, Table, Button, Modal, Form, Row, Col, Spinner, Alert, Badge, OverlayTrigger, Tooltip } from 'react-bootstrap';
 import { FiPlus, FiEdit, FiTrash2, FiSlash, FiBell, FiGlobe, FiWind, FiAlertTriangle, FiThermometer, FiDroplet } from 'react-icons/fi';
-import axios from 'axios';
+import api from '../services/api';
 import { useAppContext } from '../context/AppContext';
 
 interface Umbral {
@@ -55,16 +55,18 @@ const Umbrales: React.FC = () => {
         setError(null);
         
         // Cargar aires
-        const airesResponse = await axios.get('/aires');
-        setAires(airesResponse.data);
+        const airesResponse = await api.get('/aires');
+        const airesData = airesResponse.data?.data || [];
+        setAires(airesData);
         
         // Cargar umbrales
-        const umbralesResponse = await axios.get('/umbrales');
+        const umbralesResponse = await api.get('/umbrales');
+        const umbralesData = umbralesResponse.data?.data || [];
         
         // Añadir información del aire a cada umbral
-        const umbralesConDetalles = umbralesResponse.data.map((umbral: Umbral) => {
+        const umbralesConDetalles = umbralesData.map((umbral: Umbral) => {
           if (!umbral.es_global && umbral.aire_id) {
-            const aire = airesResponse.data.find((a: AireAcondicionado) => a.id === umbral.aire_id);
+            const aire = airesData.find((a: AireAcondicionado) => a.id === umbral.aire_id);
             return {
               ...umbral,
               aire_nombre: aire?.nombre || 'Desconocido',
@@ -87,7 +89,7 @@ const Umbrales: React.FC = () => {
   }, []);
 
   // Manejar cambios en el formulario
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const target = e.target;
     let value: string | number | boolean = target.value;
     const name = target.name;
@@ -191,7 +193,7 @@ const Umbrales: React.FC = () => {
   const handleDelete = async (id: number) => {
     if (window.confirm('¿Está seguro de eliminar esta configuración de umbrales?')) {
       try {
-        await axios.delete(`/umbrales/${id}`);
+        await api.delete(`/umbrales/${id}`);
         setUmbrales(umbrales.filter(umbral => umbral.id !== id));
       } catch (error) {
         console.error('Error al eliminar umbral:', error);
@@ -213,7 +215,7 @@ const Umbrales: React.FC = () => {
     
     try {
       if (formMode === 'add') {
-        const response = await axios.post('/umbrales', formData);
+        const response = await api.post('/umbrales', formData);
         
         // Crear nuevo umbral con datos completos
         let nuevoUmbral: Umbral = {
@@ -237,7 +239,7 @@ const Umbrales: React.FC = () => {
         
         setUmbrales([...umbrales, nuevoUmbral]);
       } else if (selectedUmbralId) {
-        await axios.put(`/umbrales/${selectedUmbralId}`, formData);
+        await api.put(`/umbrales/${selectedUmbralId}`, formData);
         
         // Actualizar umbral en el estado
         setUmbrales(umbrales.map(umbral => {
