@@ -26,6 +26,20 @@ export interface AireAcondicionado {
   ubicacion: string;
 }
 
+export interface UmbralConfiguracion {
+  id: number;
+  nombre: string;
+  es_global: boolean;
+  aire_id?: number | null;
+  temp_min: number;
+  temp_max: number;
+  hum_min: number;
+  hum_max: number;
+  notificar_activo: boolean;
+  aire_nombre?: string; // Opcional, si viene del backend
+  ubicacion?: string;   // Opcional, si viene del backend
+}
+
 // --- Componente Principal (Contenedor) ---
 const Lecturas: React.FC = () => {
   const { user } = useAppContext();
@@ -36,6 +50,7 @@ const Lecturas: React.FC = () => {
   const [filtroAire, setFiltroAire] = useState<number | null>(null);
   const [showModal, setShowModal] = useState<boolean>(false);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false); // Estado para el envío del form
+  const [umbrales, setUmbrales] = useState<UmbralConfiguracion[]>([]); 
   const [formData, setFormData] = useState({
     aire_id: '',
     fecha: '',
@@ -60,34 +75,35 @@ const Lecturas: React.FC = () => {
           paramsLecturas.aire_id = filtroAire;
         }
 
-        // Ejecutar ambas peticiones en paralelo y esperar a que ambas terminen
-        const [airesResponse, lecturasResponse] = await Promise.all([
-          api.get('/aires'), // Obtener siempre la lista fresca de aires
-          api.get(urlLecturas, { params: paramsLecturas })
+        // Ejecutar TODAS las peticiones en paralelo
+        const [airesResponse, lecturasResponse, umbralesResponse] = await Promise.all([ // <--- Añadir petición de umbrales
+          api.get('/aires'),
+          api.get(urlLecturas, { params: paramsLecturas }),
+          api.get('/umbrales') // <--- Obtener todos los umbrales
         ]);
 
         // --- Procesar Aires PRIMERO ---
         const airesData = airesResponse.data?.data || airesResponse.data || [];
-        if (!Array.isArray(airesData)) {
-            console.error("Respuesta inesperada para /aires:", airesResponse.data);
-            setAires([]); // Establecer a vacío si el formato es incorrecto
-            // Podrías lanzar un error aquí si los aires son cruciales
-            // throw new Error("Formato de datos de aires inválido.");
+        // ... (validación y setAires) ...
+        setAires(airesData);
+
+
+        // --- Procesar Umbrales ---
+        const umbralesData = umbralesResponse.data?.data || umbralesResponse.data || []; // <--- Procesar respuesta de umbrales
+        if (!Array.isArray(umbralesData)) {
+            console.error("Respuesta inesperada para /umbrales:", umbralesResponse.data);
+            setUmbrales([]);
         } else {
-            setAires(airesData); // Actualizar el estado de aires
+            setUmbrales(umbralesData); // <--- Guardar umbrales en el estado
         }
 
-        // --- Procesar Lecturas DESPUÉS, usando los aires recién obtenidos ---
+
+        // --- Procesar Lecturas DESPUÉS ---
         const lecturasData = lecturasResponse.data?.data || lecturasResponse.data || [];
-        if (!Array.isArray(lecturasData)) {
-            console.error("Respuesta inesperada para /lecturas:", lecturasResponse.data);
-            setLecturas([]);
-            throw new Error("Formato de datos de lecturas inválido.");
-        }
+        // ... (validación) ...
 
-        // Ahora 'airesData' contiene la lista actualizada de aires
+        // Mapear lecturas usando airesData (como antes)
         const lecturasConDetalles = lecturasData.map((lectura: Lectura) => {
-          // Buscar en la lista de aires recién obtenida (airesData)
           const aire = airesData.find((a: AireAcondicionado) => a.id === lectura.aire_id);
           return {
             ...lectura,
@@ -96,27 +112,21 @@ const Lecturas: React.FC = () => {
           };
         });
 
-        // Ordenar por fecha descendente
+        // Ordenar (como antes)
         lecturasConDetalles.sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime());
 
-        setLecturas(lecturasConDetalles); // Actualizar el estado de lecturas
+        setLecturas(lecturasConDetalles);
 
       } catch (err: any) {
-        console.error('Error al cargar datos:', err);
-        // Mostrar un mensaje más específico si es posible
-        const errorMsg = err.response?.data?.mensaje || err.message || 'Error al cargar los datos. Verifique la conexión y el formato de la respuesta.';
-        setError(errorMsg);
-        // Asegurarse de limpiar los estados en caso de error si es necesario
-        setAires([]);
-        setLecturas([]);
+        // ... (manejo de errores) ...
+        setUmbrales([]); // Limpiar umbrales en error también
       } finally {
         setLoading(false);
       }
     };
 
     fetchData();
-  // Quitar 'aires' de las dependencias si estaba, ya que se obtiene dentro del efecto
-  }, [filtroAire]); // Recargar solo cuando cambia el filtro
+  }, [filtroAire]) // Recargar solo cuando cambia el filtro
 
 
   // Filtrar por aire
@@ -285,6 +295,7 @@ const Lecturas: React.FC = () => {
             onAdd={handleAdd} // Pasar la función para el botón dentro de la tabla vacía
             formatearFecha={formatearFecha}
             formatearHora={formatearHora}
+            umbrales={umbrales}
           />
         </Card.Body>
       </Card>

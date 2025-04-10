@@ -21,6 +21,19 @@ interface LecturasTableProps {
   onAdd: () => void; // Función para abrir el modal de agregar
   formatearFecha: (fechaStr: string) => string;
   formatearHora: (fechaStr: string) => string;
+  umbrales: UmbralConfiguracion[]; 
+
+}
+interface UmbralConfiguracion { // O importar desde types.ts o Lecturas.tsx
+  id: number;
+  nombre: string;
+  es_global: boolean;
+  aire_id?: number | null;
+  temp_min: number;
+  temp_max: number;
+  hum_min: number;
+  hum_max: number;
+  notificar_activo: boolean;
 }
 
 const LecturasTable: React.FC<LecturasTableProps> = ({
@@ -30,7 +43,8 @@ const LecturasTable: React.FC<LecturasTableProps> = ({
   onDelete,
   onAdd,
   formatearFecha,
-  formatearHora
+  formatearHora,
+  umbrales
 }) => {
 
   if (loading) {
@@ -57,19 +71,7 @@ const LecturasTable: React.FC<LecturasTableProps> = ({
     );
   }
 
-  // Función para determinar el color del badge de temperatura
-  const getTempBadgeColor = (temp: number): string => {
-    if (temp > 25) return 'danger';
-    if (temp < 18) return 'info';
-    return 'success';
-  };
-
-  // Función para determinar el color del badge de humedad
-  const getHumBadgeColor = (hum: number): string => {
-    if (hum > 70) return 'warning';
-    if (hum < 30) return 'secondary';
-    return 'primary';
-  };
+  
 
   return (
     <div className="table-responsive">
@@ -87,7 +89,43 @@ const LecturasTable: React.FC<LecturasTableProps> = ({
           </tr>
         </thead>
         <tbody>
-          {lecturas.map(lectura => (
+          {lecturas.map(lectura => {
+            // --- Determinar umbral aplicable para ESTA lectura ---
+            const umbralesActivos = umbrales.filter(u => u.notificar_activo);
+            const umbralEspecifico = umbralesActivos.find(u => u.aire_id === lectura.aire_id);
+            const umbralGlobal = umbralesActivos.find(u => u.es_global);
+
+            // Prioridad: Específico > Global
+            const umbralAplicable = umbralEspecifico || umbralGlobal;
+
+            // --- Determinar color del badge de Temperatura ---
+            let tempColor = 'success'; // Color por defecto si está dentro de límites o no hay umbral
+            if (umbralAplicable) {
+              if (lectura.temperatura < umbralAplicable.temp_min) {
+                tempColor = 'info'; // Azul claro para frío
+              } else if (lectura.temperatura > umbralAplicable.temp_max) {
+                tempColor = 'danger'; // Rojo para caliente
+              }
+            } else {
+              // Lógica fallback si NO hay umbrales (opcional, podrías usar los valores fijos aquí)
+              if (lectura.temperatura > 25) tempColor = 'danger';
+              if (lectura.temperatura < 18) tempColor = 'info';
+            }
+
+            // --- Determinar color del badge de Humedad ---
+            let humColor = 'primary'; // Color por defecto
+            if (umbralAplicable) {
+              if (lectura.humedad < umbralAplicable.hum_min) {
+                humColor = 'secondary'; // Gris/azul claro para seco
+              } else if (lectura.humedad > umbralAplicable.hum_max) {
+                humColor = 'warning'; // Naranja/amarillo para húmedo
+              }
+            } else {
+              // Lógica fallback si NO hay umbrales (opcional)
+              if (lectura.humedad > 70) humColor = 'warning';
+              if (lectura.humedad < 30) humColor = 'secondary';
+            }
+            return (
             <tr key={lectura.id}>
               <td>{lectura.id}</td>
               <td>{lectura.aire_nombre}</td>
@@ -101,13 +139,13 @@ const LecturasTable: React.FC<LecturasTableProps> = ({
                 {formatearHora(lectura.fecha)}
               </td>
               <td>
-                <Badge bg={getTempBadgeColor(lectura.temperatura)}>
+                <Badge bg={tempColor}>
                   <FiThermometer className="me-1" />
                   {lectura.temperatura.toFixed(1)} °C {/* Asegurar formato */}
                 </Badge>
               </td>
               <td>
-                <Badge bg={getHumBadgeColor(lectura.humedad)}>
+                <Badge bg={humColor}>
                   <FiDroplet className="me-1" />
                   {lectura.humedad.toFixed(1)} % {/* Asegurar formato */}
                 </Badge>
@@ -125,7 +163,7 @@ const LecturasTable: React.FC<LecturasTableProps> = ({
                 </td>
               )}
             </tr>
-          ))}
+          )})}
         </tbody>
       </Table>
     </div>
