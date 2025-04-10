@@ -197,7 +197,7 @@ def admin_create_user():
         apellido=apellido,
         email=email,
         username=username,
-        password=password, # Aquí se pasa la contraseña directamente
+        password=password, 
         rol=rol
     )
 
@@ -641,36 +641,48 @@ def get_usuarios():
 @app.route('/api/usuarios/<int:usuario_id>', methods=['PUT'])
 @jwt_required()
 def update_usuario(usuario_id):
-    current_user = get_jwt_identity()
-    if current_user.get('rol') != 'admin':
-        return jsonify({'success': False, 'mensaje': 'No tienes permiso para realizar esta acción'}), 403
-    
-    data = request.get_json()
-    nombre = data.get('nombre')
-    apellido = data.get('apellido')
-    email = data.get('email')
-    rol = data.get('rol')
-    activo = data.get('activo')
-    
-    # Verificar datos requeridos
-    if not (nombre and apellido and email and rol is not None):
-        return jsonify({'success': False, 'mensaje': 'Todos los campos son requeridos'})
-    
-    # Actualizar usuario
-    actualizado = data_manager.actualizar_usuario(
-        usuario_id=usuario_id,
-        nombre=nombre,
-        apellido=apellido,
-        email=email,
-        rol=rol,
-        activo=activo
-    )
-    
-    if actualizado:
-        return jsonify({'success': True, 'mensaje': 'Usuario actualizado exitosamente'})
-    else:
-        return jsonify({'success': False, 'mensaje': 'Error al actualizar el usuario'})
-    
+    try:
+        # Get JWT identity and claims
+        current_user_id = get_jwt_identity()
+        jwt_data = get_jwt()
+        
+        # Check admin role
+        if not jwt_data or jwt_data.get('rol') != 'admin':
+            return jsonify({'success': False, 'mensaje': 'No tienes permiso para realizar esta acción'}), 403
+
+        data = request.get_json()
+        nombre = data.get('nombre')
+        apellido = data.get('apellido')
+        email = data.get('email')
+        rol = data.get('rol')
+        activo = data.get('activo')
+
+        # Validate required fields
+        if not (nombre and apellido and email and rol) or activo is None:
+            return jsonify({'success': False, 'mensaje': 'Todos los campos (nombre, apellido, email, rol, activo) son requeridos'}), 400
+
+        # Validate role value
+        if rol not in ['admin', 'supervisor', 'operador']:
+            return jsonify({'success': False, 'mensaje': f"Rol '{rol}' inválido. Roles permitidos: admin, supervisor, operador"}), 400
+
+        # Update user
+        actualizado = data_manager.actualizar_usuario(
+            usuario_id=usuario_id,
+            nombre=nombre,
+            apellido=apellido,
+            email=email,
+            rol=rol,
+            activo=activo
+        )
+
+        if actualizado:
+            return jsonify({'success': True, 'mensaje': 'Usuario actualizado exitosamente'})
+        return jsonify({'success': False, 'mensaje': 'Error al actualizar el usuario'}), 500
+
+    except Exception as e:
+        print(f"Error in update_usuario: {str(e)}")
+        return jsonify({'success': False, 'mensaje': 'Error interno del servidor'}), 500
+
 
 # Iniciar servidor
 if __name__ == '__main__':

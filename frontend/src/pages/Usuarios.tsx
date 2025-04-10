@@ -208,8 +208,8 @@ const Usuarios: React.FC = () => {
     setError(null); // Limpiar errores previos
     setIsAddingUser(true); // Iniciar estado de carga
 
-    // Define el nuevo endpoint (ajusta esto a tu ruta real)
-    const adminCreateUserEndpoint = '/admin/users'; 
+      // Use the correct endpoint path (without /api prefix since it's already in baseURL)
+      const adminCreateUserEndpoint = 'admin/users';
 
     try {
       // Llama directamente al nuevo endpoint con los datos del nuevo usuario

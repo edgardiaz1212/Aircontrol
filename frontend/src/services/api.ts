@@ -1,6 +1,7 @@
 import axios from 'axios';
 
-const baseURL = import.meta.env.VITE_API_URL || '/api'
+const baseURL = import.meta.env.BACKEND_URL || '/api'
+console.log(baseURL)
 // Crear una instancia de axios con configuración común
 const api = axios.create({
   baseURL: baseURL,
