@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Card, Table, Button, Modal, Form, Row, Col, Spinner, Alert, Badge, Image } from 'react-bootstrap';
 import { FiPlus, FiTrash2, FiFilter, FiTool, FiCalendar, FiInfo, FiUser, FiImage } from 'react-icons/fi';
-import axios from 'axios';
+import api from '../services/api';
 import { useAppContext } from '../context/AppContext';
 
 interface Mantenimiento {
@@ -51,19 +51,21 @@ const Mantenimientos: React.FC = () => {
         setError(null);
         
         // Cargar aires
-        const airesResponse = await axios.get('/aires');
-        setAires(airesResponse.data);
+        const airesResponse = await api.get('/aires');
+        const airesData = airesResponse.data?.data || [];
+        setAires(airesData);
         
         // Cargar mantenimientos
         let url = '/mantenimientos';
         if (filtroAire) {
           url += `?aire_id=${filtroAire}`;
         }
-        const mantenimientosResponse = await axios.get(url);
+        const mantenimientosResponse = await api.get(url);
+        const mantenimientosData = mantenimientosResponse.data?.data || [];
         
         // Añadir información del aire a cada mantenimiento
-        const mantenimientosConDetalles = mantenimientosResponse.data.map((mantenimiento: Mantenimiento) => {
-          const aire = airesResponse.data.find((a: AireAcondicionado) => a.id === mantenimiento.aire_id);
+        const mantenimientosConDetalles = mantenimientosData.map((mantenimiento: Mantenimiento) => {
+          const aire = airesData.find((a: AireAcondicionado) => a.id === mantenimiento.aire_id);
           return {
             ...mantenimiento,
             aire_nombre: aire?.nombre || 'Desconocido',
@@ -113,7 +115,7 @@ const Mantenimientos: React.FC = () => {
   const handleDelete = async (id: number) => {
     if (window.confirm('¿Está seguro de eliminar este registro de mantenimiento?')) {
       try {
-        await axios.delete(`/mantenimientos/${id}`);
+        await api.delete(`/mantenimientos/${id}`);
         setMantenimientos(mantenimientos.filter(m => m.id !== id));
       } catch (error) {
         console.error('Error al eliminar mantenimiento:', error);
@@ -145,7 +147,7 @@ const Mantenimientos: React.FC = () => {
         formDataObj.append('imagen_file', fileInputRef.current.files[0]);
       }
       
-      const response = await axios.post('/mantenimientos', formDataObj, {
+      const response = await api.post('/mantenimientos', formDataObj, {
         headers: {
           'Content-Type': 'multipart/form-data'
         }
