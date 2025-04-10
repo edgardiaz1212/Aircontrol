@@ -15,10 +15,6 @@ from dotenv import load_dotenv
 
 # Load environment variables
 load_dotenv()
-print("\n=== Environment Variables ===")
-print(f"DATABASE_URL: {os.environ.get('DATABASE_URL')}")
-print(f"SECRET_KEY: {os.environ.get('SECRET_KEY')}")
-print(f"JWT_SECRET_KEY: {os.environ.get('JWT_SECRET_KEY')}\n")
 
 # Añadir el directorio principal al path para importar los módulos de database y data_manager
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
