@@ -347,18 +347,21 @@ const Estadisticas: React.FC = () => {
                                 ? Math.abs(statsData.humedad_maxima - statsData.humedad_minima)
                                 : 0;
 
-           setEstadisticasAire({
-               ...statsData,
-               aire_id: aireSeleccionado,
-               nombre: aireInfo?.nombre || 'Desconocido',
-               ubicacion: aireInfo?.ubicacion || 'Desconocida',
-               variacion_temperatura: parseFloat(variacionTemp.toFixed(2)), // Asegurar número y formato
-               variacion_humedad: parseFloat(variacionHum.toFixed(2)),     // Asegurar número y formato
-           });
-        } else {
-           setEstadisticasAire(null); // Si no hay datos de stats
-        }
-        setLoadingAire(false); // Stats del aire cargadas
+           const objetoParaEstado = {
+        ...statsData,
+        aire_id: aireSeleccionado,
+        nombre: aireInfo?.nombre || 'Desconocido',
+        ubicacion: aireInfo?.ubicacion || 'Desconocida',
+        variacion_temperatura: parseFloat(variacionTemp.toFixed(2)),
+        variacion_humedad: parseFloat(variacionHum.toFixed(2)),
+    };
+
+    setEstadisticasAire(objetoParaEstado);
+
+  } else {
+    setEstadisticasAire(null);
+  }
+  setLoadingAire(false)
 
         // Procesar Gráficos del Aire
         const umbralesParaAire = umbrales.filter(u =>

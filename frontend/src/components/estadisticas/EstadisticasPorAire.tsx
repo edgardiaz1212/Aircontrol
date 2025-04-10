@@ -41,7 +41,8 @@ const EstadisticasPorAire: React.FC<EstadisticasPorAireProps> = ({
   loadingAire,
   loadingChartsAire
 }) => {
-  return (
+
+    return (
     <div>
       <Row className="mb-4">
         <Col md={6}>
