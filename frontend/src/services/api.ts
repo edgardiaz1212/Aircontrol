@@ -16,9 +16,9 @@ api.interceptors.request.use(
     if (token) {
       // Ensure token doesn't already have 'Bearer ' prefix
       const cleanToken = token.startsWith('Bearer ') ? token.slice(7) : token;
-      console.log('Sending token:', cleanToken); // Debug log
+      //console.log('Sending token:', cleanToken); // Debug log
       config.headers.Authorization = `Bearer ${cleanToken}`;
-      console.log('Authorization header:', config.headers.Authorization); // Debug log
+      //console.log('Authorization header:', config.headers.Authorization); // Debug log
     }
     return config;
   },

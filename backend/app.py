@@ -565,8 +565,8 @@ def delete_umbral(umbral_id):
 @app.route('/api/usuarios', methods=['GET'])
 @jwt_required()
 def get_usuarios():
-    current_user = get_jwt_identity()
-    if current_user.get('rol') != 'admin':
+    jwt_data = get_jwt()
+    if jwt_data.get('rol') != 'admin':
         return jsonify({'success': False, 'mensaje': 'No tienes permiso para realizar esta acción'}), 403
     
     solo_activos = request.args.get('solo_activos', default=True, type=lambda v: v.lower() == 'true')
@@ -627,6 +627,63 @@ def update_usuario(usuario_id):
         return jsonify({'success': True, 'mensaje': 'Usuario actualizado exitosamente'})
     else:
         return jsonify({'success': False, 'mensaje': 'Error al actualizar el usuario'})
+    
+@app.route('/api/auth/register', methods=['POST'])
+@jwt_required() # <--- Add this decorator to require authentication
+def register():
+    # --- Get the identity and role of the user making the request ---
+    jwt_data = get_jwt()
+    requesting_user_rol = jwt_data.get('rol')
+
+    # --- Check if the requesting user has permission ---
+    if requesting_user_rol not in ['admin', 'supervisor']:
+        return jsonify({'success': False, 'mensaje': 'No tienes permiso para registrar nuevos usuarios'}), 403
+
+    # --- Proceed with registration logic ---
+    data = request.get_json()
+    nombre = data.get('nombre', '')
+    apellido = data.get('apellido', '')
+    email = data.get('email', '')
+    username = data.get('username', '')
+    password = data.get('password', '')
+
+    # Verificar datos requeridos
+    if not (nombre and apellido and email and username and password):
+        return jsonify({'success': False, 'mensaje': 'Todos los campos son requeridos'})
+
+    # --- Determine the role for the new user ---
+    # Only admins can create other admins or supervisors
+    # Supervisors can only create operators
+    rol_nuevo_usuario = data.get('rol', 'operador') # Default to 'operador'
+
+    if requesting_user_rol == 'admin':
+        # Admin can create any role, default to 'operador' if invalid
+        if rol_nuevo_usuario not in ['admin', 'supervisor', 'operador']:
+            rol_nuevo_usuario = 'operador'
+    elif requesting_user_rol == 'supervisor':
+        # Supervisor can only create operators
+        rol_nuevo_usuario = 'operador'
+    else:
+        # Should not happen due to the permission check above, but as a fallback
+        rol_nuevo_usuario = 'operador'
+
+
+    # Crear usuario
+    usuario_id = data_manager.crear_usuario(
+        nombre=nombre,
+        apellido=apellido,
+        email=email,
+        username=username,
+        password=password,
+        rol=rol_nuevo_usuario # Use the determined role
+    )
+
+    if usuario_id:
+        return jsonify({'success': True, 'mensaje': 'Usuario registrado exitosamente', 'id': usuario_id})
+    else:
+        # Be more specific about potential errors (e.g., duplicate email/username)
+        # Check the return value of crear_usuario if it provides more detail
+        return jsonify({'success': False, 'mensaje': 'Error al registrar el usuario. El email o nombre de usuario podrían ya estar en uso.'}), 400    
 
 # Iniciar servidor
 if __name__ == '__main__':
