@@ -353,7 +353,6 @@ const Mantenimientos: React.FC = () => {
                 </thead>
                 <tbody>
                   {mantenimientos.map((mantenimiento) => (
-                    // --- Added onClick handler to the table row ---
                     <tr key={mantenimiento.id} onClick={() => handleShowViewModal(mantenimiento)} style={{ cursor: 'pointer' }}>
                       <td>{mantenimiento.id}</td>
                       <td>{mantenimiento.aire_nombre}</td>
@@ -382,8 +381,7 @@ const Mantenimientos: React.FC = () => {
                                 e.stopPropagation(); // Prevent row click when clicking the button
                                 handleShowImagen(mantenimiento.imagen)
                             }}
-                            title="Ver Imagen"
-                          >
+                            title="Ver Imagen">
                             <FiImage />
                           </Button>
                         ) : (
@@ -391,8 +389,6 @@ const Mantenimientos: React.FC = () => {
                         )}
                       </td>
                       <td className="text-end">
-                         {/* View Button (optional, as row click works) */}
-                         {/*
                          <Button
                             variant="outline-secondary"
                             size="sm"
@@ -405,7 +401,6 @@ const Mantenimientos: React.FC = () => {
                          >
                             <FiInfo />
                          </Button>
-                         */}
                         {canEdit && (
                           <Button
                             variant="outline-danger"
@@ -414,8 +409,7 @@ const Mantenimientos: React.FC = () => {
                                 e.stopPropagation(); // Prevent row click when clicking the button
                                 handleDelete(mantenimiento.id)
                             }}
-                            title="Eliminar Mantenimiento"
-                          >
+                            title="Eliminar Mantenimiento">
                             <FiTrash2 />
                           </Button>
                         )}
