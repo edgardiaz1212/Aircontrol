@@ -95,7 +95,7 @@ const AppLayout: React.FC = () => {
         {/* Top Navbar */}
         <Navbar bg="light" expand="lg" className="mb-4 shadow-sm">
           <Container fluid>
-          <img className="navLogo" src={logo}></img>
+          <img className="navLogo me-2" src={logo}></img>
             <Navbar.Brand>Sistema de Monitoreo AC DCCE</Navbar.Brand>
             <Navbar.Toggle aria-controls="basic-navbar-nav" />
             <Navbar.Collapse id="basic-navbar-nav" className="justify-content-end">
