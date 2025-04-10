@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Card, Table, Button, Modal, Form, Row, Col, Spinner, Alert, Badge, Dropdown } from 'react-bootstrap';
 import { FiPlus, FiTrash2, FiFilter, FiThermometer, FiDroplet, FiCalendar, FiClock } from 'react-icons/fi';
-import axios from 'axios';
+import api from '../services/api';
 import { useAppContext } from '../context/AppContext';
 
 interface Lectura {
@@ -47,7 +47,7 @@ const Lecturas: React.FC = () => {
         setError(null);
         
         // Cargar aires
-        const airesResponse = await axios.get('/aires');
+        const airesResponse = await api.get('/aires');
         setAires(airesResponse.data);
         
         // Cargar lecturas
@@ -55,11 +55,11 @@ const Lecturas: React.FC = () => {
         if (filtroAire) {
           url += `?aire_id=${filtroAire}`;
         }
-        const lecturasResponse = await axios.get(url);
+        const lecturasResponse = await api.get(url);
         console.log('Respuesta de /lecturas:', lecturasResponse.data); // <-- Añade esto para depurar
 
         // Añadir información del aire a cada lectura
-        const lecturasConDetalles = lecturasResponse.data.map((lectura: Lectura) => {
+        const lecturasConDetalles = lecturasResponse.data.data.map((lectura: Lectura) => {
           const aire = airesResponse.data.find((a: AireAcondicionado) => a.id === lectura.aire_id);
           return {
             ...lectura,
@@ -115,7 +115,7 @@ const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement 
   const handleDelete = async (id: number) => {
     if (window.confirm('¿Está seguro de eliminar esta lectura?')) {
       try {
-        await axios.delete(`/lecturas/${id}`);
+        await api.delete(`/lecturas/${id}`);
         setLecturas(lecturas.filter(lectura => lectura.id !== id));
       } catch (error) {
         console.error('Error al eliminar lectura:', error);
@@ -137,7 +137,7 @@ const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement 
         humedad: parseFloat(formData.humedad)
       };
       
-      const response = await axios.post('/lecturas', payload);
+      const response = await api.post('/lecturas', payload);
       
       // Obtener aire correspondiente
       const aire = aires.find(a => a.id === payload.aire_id);
