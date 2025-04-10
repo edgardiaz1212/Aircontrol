@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Card, Row, Col, Tabs, Tab, Form, Spinner, Alert, Table } from 'react-bootstrap';
-import { Line, Bar } from 'react-chartjs-2';
+import { Tabs, Tab, Spinner, Alert } from 'react-bootstrap';
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -11,16 +10,17 @@ import {
   Title,
   Tooltip,
   Legend,
-  ChartOptions,
-  ChartData // Import ChartData type
 } from 'chart.js';
 import api from '../services/api';
-import {
-  FiBarChart2, FiThermometer, FiDroplet, FiMapPin, FiClock, FiWind
-} from 'react-icons/fi';
-import { format } from 'date-fns'; // For formatting dates/times in charts
+import { FiBarChart2, FiMapPin, FiWind } from 'react-icons/fi';
+import { format } from 'date-fns';
 
-// Registrar componentes de ChartJS
+// Importar los nuevos componentes
+import EstadisticasGeneral from '../components/estadisticas/EstadisticasGeneral';
+import EstadisticasPorAire from '../components/estadisticas/EstadisticasPorAire';
+import EstadisticasPorUbicacion from '../components/estadisticas/EstadisticasPorUbicacion';
+
+// Registrar componentes de ChartJS (solo necesario una vez en la aplicación, usualmente en App.tsx o index.tsx, pero aquí está bien por ahora)
 ChartJS.register(
   CategoryScale,
   LinearScale,
@@ -32,14 +32,14 @@ ChartJS.register(
   Legend
 );
 
-// --- Interfaces (mantener las existentes) ---
-interface AireAcondicionado {
+// --- Interfaces (Exportarlas para que los componentes hijos puedan importarlas) ---
+export interface AireAcondicionado {
   id: number;
   nombre: string;
   ubicacion: string;
 }
 
-interface Lectura {
+export interface Lectura {
   id: number;
   aire_id: number;
   fecha: string; // Assuming ISO string format from backend
@@ -47,7 +47,7 @@ interface Lectura {
   humedad: number;
 }
 
-interface EstadisticasGenerales {
+export interface EstadisticasGenerales {
   temperatura_promedio: number;
   temperatura_maxima: number;
   temperatura_minima: number;
@@ -55,29 +55,26 @@ interface EstadisticasGenerales {
   humedad_maxima: number;
   humedad_minima: number;
   total_lecturas: number;
-  // Assuming backend might not provide these directly in general stats
-  variacion_temperatura?: number;
-  variacion_humedad?: number;
+  variacion_temperatura?: number; // Opcional si no viene del backend general
+  variacion_humedad?: number;   // Opcional si no viene del backend general
 }
 
-interface EstadisticasAire extends EstadisticasGenerales {
+export interface EstadisticasAire extends EstadisticasGenerales {
   aire_id: number;
   nombre: string;
   ubicacion: string;
-  // Explicitly add variations if backend provides them per aire
-  variacion_temperatura: number;
-  variacion_humedad: number;
+  variacion_temperatura: number; // Asumiendo que el backend sí lo provee por aire
+  variacion_humedad: number;   // Asumiendo que el backend sí lo provee por aire
 }
 
-interface EstadisticasUbicacion {
+export interface EstadisticasUbicacion {
   ubicacion: string;
-  aires: number; // Assuming backend provides this count
+  aires: number;
   temperatura_promedio: number;
   humedad_promedio: number;
 }
 
-// Renamed for clarity
-interface ChartDataType {
+export interface ChartDataType {
   labels: string[];
   datasets: {
     label: string;
@@ -88,9 +85,9 @@ interface ChartDataType {
   }[];
 }
 
-// --- Componente Estadisticas ---
+// --- Componente Estadisticas (Contenedor) ---
 const Estadisticas: React.FC = () => {
-  // --- State ---
+  // --- State (Mantenido en el componente padre) ---
   const [aires, setAires] = useState<AireAcondicionado[]>([]);
   const [aireSeleccionado, setAireSeleccionado] = useState<number | null>(null);
   const [ubicaciones, setUbicaciones] = useState<string[]>([]);
@@ -109,26 +106,22 @@ const Estadisticas: React.FC = () => {
   const [graficoAireHum, setGraficoAireHum] = useState<ChartDataType | null>(null);
 
   // Loading and Error States
-  const [loadingGeneral, setLoadingGeneral] = useState<boolean>(true);
-  const [loadingAire, setLoadingAire] = useState<boolean>(false); // Only true when fetching specific aire data
-  const [loadingUbicacion, setLoadingUbicacion] = useState<boolean>(true);
-  const [loadingChartsGeneral, setLoadingChartsGeneral] = useState<boolean>(true);
-  const [loadingChartsAire, setLoadingChartsAire] = useState<boolean>(false);
+  const [loadingGeneral, setLoadingGeneral] = useState<boolean>(true); // Para aires y stats generales iniciales
+  const [loadingAire, setLoadingAire] = useState<boolean>(false); // Solo para datos específicos del aire
+  const [loadingUbicacion, setLoadingUbicacion] = useState<boolean>(true); // Para stats de ubicación iniciales
+  const [loadingChartsGeneral, setLoadingChartsGeneral] = useState<boolean>(true); // Para gráficos generales y comparativos
+  const [loadingChartsAire, setLoadingChartsAire] = useState<boolean>(false); // Solo para gráficos específicos del aire
   const [error, setError] = useState<string | null>(null);
 
-  // --- Helper Function to process Lecturas for Line Charts ---
-  const procesarLecturasParaGrafico = (lecturas: Lectura[]): { tempChart: ChartDataType, humChart: ChartDataType } | null => {
+  // --- Helper Functions (Mantenidas en el padre para procesar datos antes de pasarlos) ---
+  const procesarLecturasParaGrafico = useCallback((lecturas: Lectura[]): { tempChart: ChartDataType, humChart: ChartDataType } | null => {
     if (!lecturas || lecturas.length === 0) {
       return null;
     }
-
-    // Sort by date just in case
     const sortedLecturas = [...lecturas].sort((a, b) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime());
+    const limitedLecturas = sortedLecturas.slice(-50); // Últimas 50 lecturas
 
-    // Limit the number of points for clarity, e.g., last 50 or 100
-    const limitedLecturas = sortedLecturas.slice(-50); // Show last 50 readings
-
-    const labels = limitedLecturas.map(l => format(new Date(l.fecha), 'HH:mm')); // Format time
+    const labels = limitedLecturas.map(l => format(new Date(l.fecha), 'HH:mm'));
     const tempData = limitedLecturas.map(l => l.temperatura);
     const humData = limitedLecturas.map(l => l.humedad);
 
@@ -139,10 +132,9 @@ const Estadisticas: React.FC = () => {
         data: tempData,
         borderColor: 'rgba(255, 99, 132, 1)',
         backgroundColor: 'rgba(255, 99, 132, 0.2)',
-        tension: 0.1 // Less curve for real data potentially
+        tension: 0.1
       }]
     };
-
     const humChart: ChartDataType = {
       labels,
       datasets: [{
@@ -153,16 +145,13 @@ const Estadisticas: React.FC = () => {
         tension: 0.1
       }]
     };
-
     return { tempChart, humChart };
-  };
+  }, []);
 
-  // --- Helper Function to process Ubicacion Stats for Bar Charts ---
-   const procesarUbicacionesParaGrafico = (stats: EstadisticasUbicacion[]): { tempChart: ChartDataType, humChart: ChartDataType } | null => {
+  const procesarUbicacionesParaGrafico = useCallback((stats: EstadisticasUbicacion[]): { tempChart: ChartDataType, humChart: ChartDataType } | null => {
     if (!stats || stats.length === 0) {
       return null;
     }
-
     const labels = stats.map(s => s.ubicacion);
     const tempAvgData = stats.map(s => s.temperatura_promedio);
     const humAvgData = stats.map(s => s.humedad_promedio);
@@ -175,7 +164,6 @@ const Estadisticas: React.FC = () => {
         backgroundColor: 'rgba(255, 99, 132, 0.7)'
       }]
     };
-
     const humChart: ChartDataType = {
       labels,
       datasets: [{
@@ -184,14 +172,12 @@ const Estadisticas: React.FC = () => {
         backgroundColor: 'rgba(54, 162, 235, 0.7)'
       }]
     };
-
     return { tempChart, humChart };
-  };
+  }, []);
 
+  // --- Effects (Mantenidos en el padre para fetching) ---
 
-  // --- Effects ---
-
-  // Initial Load: Aires, General Stats, Ubicacion Stats, General Charts
+  // Initial Load
   useEffect(() => {
     const fetchDatosIniciales = async () => {
       setLoadingGeneral(true);
@@ -200,68 +186,53 @@ const Estadisticas: React.FC = () => {
       setError(null);
 
       try {
-        // Fetch in parallel
         const [resAires, resEstGen, resEstUbic, resLecturasGen] = await Promise.all([
           api.get('/aires'),
           api.get('/estadisticas/general'),
           api.get('/estadisticas/ubicacion'),
-          api.get('/lecturas?limit=50') // Fetch last 50 readings for general chart
+          api.get('/lecturas?limit=50')
         ]);
 
-        // Process Aires
-        const airesData = resAires.data || []; // Adjust based on actual backend response structure for aires
+        // Aires y Ubicaciones
+        const airesData = resAires.data?.data || resAires.data || [];
         setAires(airesData);
-        const ubicacionesUnicas = Array.from(
-          new Set(airesData.map((aire: AireAcondicionado) => aire.ubicacion))
-        );
+        const ubicacionesUnicas = Array.from(new Set(airesData.map((aire: AireAcondicionado) => aire.ubicacion)));
         setUbicaciones(ubicacionesUnicas as string[]);
-        setLoadingGeneral(false); // Aires loaded
+        setLoadingGeneral(false); // Aires cargados
 
-        // Process General Statistics (assuming direct data, no 'data' key)
+        // Stats Generales
         setEstadisticasGenerales(resEstGen.data || null);
 
-        // Process Ubicacion Statistics (assuming direct data, no 'data' key)
+        // Stats Ubicacion
         const ubicacionData = resEstUbic.data || [];
         setEstadisticasUbicacion(ubicacionData);
-        setLoadingUbicacion(false); // Ubicaciones loaded
+        setLoadingUbicacion(false); // Ubicaciones cargadas
 
-        // Process General Lecturas for Charts
-        const lecturasGenerales = resLecturasGen.data?.data || []; // Assuming /lecturas uses 'data' key
+        // Gráficos Generales (Línea)
+        const lecturasGenerales = resLecturasGen.data?.data || [];
         const generalChartData = procesarLecturasParaGrafico(lecturasGenerales);
-        if (generalChartData) {
-          setGraficoGeneralTemp(generalChartData.tempChart);
-          setGraficoGeneralHum(generalChartData.humChart);
-        } else {
-          setGraficoGeneralTemp(null);
-          setGraficoGeneralHum(null);
-        }
+        setGraficoGeneralTemp(generalChartData?.tempChart || null);
+        setGraficoGeneralHum(generalChartData?.humChart || null);
 
-         // Process Ubicacion Stats for Bar Charts
-         const comparativoChartData = procesarUbicacionesParaGrafico(ubicacionData);
-         if (comparativoChartData) {
-           setGraficoComparativoTemp(comparativoChartData.tempChart);
-           setGraficoComparativoHum(comparativoChartData.humChart);
-         } else {
-           setGraficoComparativoTemp(null);
-           setGraficoComparativoHum(null);
-         }
+        // Gráficos Comparativos (Barra)
+        const comparativoChartData = procesarUbicacionesParaGrafico(ubicacionData);
+        setGraficoComparativoTemp(comparativoChartData?.tempChart || null);
+        setGraficoComparativoHum(comparativoChartData?.humChart || null);
 
-        setLoadingChartsGeneral(false); // Charts loaded
+        setLoadingChartsGeneral(false); // Gráficos generales cargados
 
       } catch (err) {
         console.error('Error al cargar datos iniciales:', err);
         setError('Error al cargar los datos iniciales de estadísticas.');
-        // Set all loading states to false on error
         setLoadingGeneral(false);
         setLoadingUbicacion(false);
         setLoadingChartsGeneral(false);
       }
     };
-
     fetchDatosIniciales();
-  }, []); // Empty dependency array means run once on mount
+  }, [procesarLecturasParaGrafico, procesarUbicacionesParaGrafico]); // Incluir helpers si usan estado o props
 
-  // Load Statistics and Charts for Selected Aire
+  // Load Data for Selected Aire
   useEffect(() => {
     const fetchDatosAire = async () => {
       if (!aireSeleccionado) {
@@ -274,44 +245,27 @@ const Estadisticas: React.FC = () => {
       setLoadingAire(true);
       setLoadingChartsAire(true);
       setError(null);
-      setEstadisticasAire(null); // Clear previous data
+      setEstadisticasAire(null);
       setGraficoAireTemp(null);
       setGraficoAireHum(null);
 
-
       try {
-        // Fetch stats and readings in parallel
-         const [resStatsAire, resLecturasAire] = await Promise.all([
-            api.get(`/estadisticas/aire/${aireSeleccionado}`),
-            api.get(`/lecturas?aire_id=${aireSeleccionado}&limit=50`) // Fetch last 50 for this AC
-         ]);
+        const [resStatsAire, resLecturasAire] = await Promise.all([
+          api.get(`/estadisticas/aire/${aireSeleccionado}`),
+          api.get(`/lecturas?aire_id=${aireSeleccionado}&limit=50`)
+        ]);
 
-
-        // Process Stats (assuming direct data)
+        // Stats Aire
         const statsData = resStatsAire.data || {};
-        const aireInfo = aires.find(a => a.id === aireSeleccionado); // Get name/location from already loaded aires
-        if (aireInfo) {
-          setEstadisticasAire({
-            ...statsData,
-            aire_id: aireInfo.id,
-            nombre: aireInfo.nombre,
-            ubicacion: aireInfo.ubicacion
-          });
-        } else {
-           setEstadisticasAire(statsData); // Fallback if aireInfo not found
-        }
+        const aireInfo = aires.find(a => a.id === aireSeleccionado);
+        setEstadisticasAire(aireInfo ? { ...statsData, ...aireInfo } : statsData);
         setLoadingAire(false);
 
-        // Process Lecturas for Charts
-        const lecturasAireData = resLecturasAire.data?.data || []; // Assuming /lecturas uses 'data' key
+        // Gráficos Aire
+        const lecturasAireData = resLecturasAire.data?.data || [];
         const aireChartData = procesarLecturasParaGrafico(lecturasAireData);
-         if (aireChartData) {
-           setGraficoAireTemp(aireChartData.tempChart);
-           setGraficoAireHum(aireChartData.humChart);
-         } else {
-           setGraficoAireTemp(null);
-           setGraficoAireHum(null);
-         }
+        setGraficoAireTemp(aireChartData?.tempChart || null);
+        setGraficoAireHum(aireChartData?.humChart || null);
         setLoadingChartsAire(false);
 
       } catch (err) {
@@ -321,111 +275,10 @@ const Estadisticas: React.FC = () => {
         setLoadingChartsAire(false);
       }
     };
-
     fetchDatosAire();
-  }, [aireSeleccionado, aires]); // Re-run when aireSeleccionado changes (or aires list updates)
+  }, [aireSeleccionado, aires, procesarLecturasParaGrafico]); // Dependencias
 
-
-  // --- Chart Options (mantener las existentes) ---
-  const opcionesLinea: ChartOptions<'line'> = {
-    responsive: true,
-    maintainAspectRatio: false, // Allow chart to shrink
-    plugins: {
-      legend: { position: 'top' as const },
-      title: { display: true, /* Text set dynamically below */ }
-    },
-    scales: {
-      y: {
-        title: { display: true, /* Text set dynamically below */ }
-      },
-      x: {
-        title: { display: true, text: 'Hora (HH:mm)' } // Updated label
-      }
-    }
-  };
-
-  const opcionesBarra: ChartOptions<'bar'> = {
-    responsive: true,
-    maintainAspectRatio: false, // Allow chart to shrink
-    indexAxis: 'x', // Use 'x' for vertical bars based on location labels
-    plugins: {
-      legend: { position: 'top' as const },
-      title: { display: true, /* Text set dynamically below */ }
-    },
-    scales: {
-      y: {
-        beginAtZero: true, // Start y-axis at 0
-        title: { display: true, /* Text set dynamically below */ }
-      },
-      x: {
-         title: { display: true, text: 'Ubicación' }
-      }
-    }
-  };
-
-  // --- Render Helper for Charts ---
-  const renderLineChart = (
-    title: string,
-    yAxisLabel: string,
-    data: ChartDataType | null,
-    loading: boolean
-  ) => {
-    const options: ChartOptions<'line'> = {
-      ...opcionesLinea,
-      plugins: {
-        ...opcionesLinea.plugins,
-        title: { ...opcionesLinea.plugins?.title, display: true, text: title }
-      },
-      scales: {
-        ...opcionesLinea.scales,
-        y: { ...opcionesLinea.scales?.y, title: { display: true, text: yAxisLabel } }
-      }
-    };
-    return (
-      <div className="chart-container" style={{ height: '300px', position: 'relative' }}> {/* Set fixed height */}
-        {loading ? (
-          <div className="text-center p-5"><Spinner animation="border" size="sm" /> Cargando gráfico...</div>
-        ) : data ? (
-          <Line data={data} options={options} />
-        ) : (
-          <div className="text-center p-5">No hay datos suficientes para generar el gráfico.</div>
-        )}
-      </div>
-    );
-  };
-
-  const renderBarChart = (
-    title: string,
-    yAxisLabel: string,
-    data: ChartDataType | null,
-    loading: boolean
-  ) => {
-     const options: ChartOptions<'bar'> = {
-      ...opcionesBarra,
-      plugins: {
-        ...opcionesBarra.plugins,
-        title: { ...opcionesBarra.plugins?.title, display: true, text: title }
-      },
-      scales: {
-        ...opcionesBarra.scales,
-        y: { ...opcionesBarra.scales?.y, title: { display: true, text: yAxisLabel } }
-      }
-    };
-    return (
-      <div className="chart-container" style={{ height: '300px', position: 'relative' }}> {/* Set fixed height */}
-        {loading ? (
-          <div className="text-center p-5"><Spinner animation="border" size="sm" /> Cargando gráfico...</div>
-        ) : data ? (
-          <Bar data={data} options={options} />
-        ) : (
-          <div className="text-center p-5">No hay datos suficientes para generar el gráfico.</div>
-        )}
-      </div>
-    );
-  };
-
-
-  // --- JSX ---
+  // --- JSX (Simplificado usando los componentes hijos) ---
   return (
     <div>
       <h1 className="mb-4">Estadísticas</h1>
@@ -436,7 +289,7 @@ const Estadisticas: React.FC = () => {
         </Alert>
       )}
 
-      {/* Main Loading Indicator */}
+      {/* Indicador de carga principal */}
       {loadingGeneral && loadingUbicacion && (
         <div className="text-center p-5">
           <Spinner animation="border" variant="primary" />
@@ -444,320 +297,47 @@ const Estadisticas: React.FC = () => {
         </div>
       )}
 
-      {/* Show Tabs only after initial data (aires, ubicaciones) is loaded */}
+      {/* Mostrar Tabs solo después de la carga inicial */}
       {!loadingGeneral && !loadingUbicacion && (
-        <Tabs defaultActiveKey="general" id="stats-tabs" className="mb-4">
+        <Tabs defaultActiveKey="general" id="stats-tabs" className="mb-4" mountOnEnter>
           {/* Pestaña General */}
           <Tab eventKey="general" title={<><FiBarChart2 className="me-2" /> General</>}>
-            <Row>
-              {/* Resumen General Card */}
-              <Col lg={4} md={6} className="mb-4">
-                <Card className="dashboard-card h-100">
-                  <Card.Header>Resumen General</Card.Header>
-                  <Card.Body>
-                    {loadingGeneral ? (
-                       <div className="text-center"><Spinner animation="border" size="sm" /></div>
-                    ) : estadisticasGenerales ? (
-                      <Table striped hover size="sm">
-                        <tbody>
-                          <tr>
-                            <td><FiThermometer className="me-2 text-danger" />Temp. Promedio</td>
-                            <td><strong>{estadisticasGenerales.temperatura_promedio?.toFixed(1) ?? 'N/A'} °C</strong></td>
-                          </tr>
-                          <tr>
-                            <td><FiThermometer className="me-2 text-danger" />Temp. Máxima</td>
-                            <td><strong>{estadisticasGenerales.temperatura_maxima?.toFixed(1) ?? 'N/A'} °C</strong></td>
-                          </tr>
-                          <tr>
-                            <td><FiThermometer className="me-2 text-danger" />Temp. Mínima</td>
-                            <td><strong>{estadisticasGenerales.temperatura_minima?.toFixed(1) ?? 'N/A'} °C</strong></td>
-                          </tr>
-                          <tr>
-                            <td><FiDroplet className="me-2 text-primary" />Hum. Promedio</td>
-                            <td><strong>{estadisticasGenerales.humedad_promedio?.toFixed(1) ?? 'N/A'} %</strong></td>
-                          </tr>
-                          <tr>
-                            <td><FiDroplet className="me-2 text-primary" />Hum. Máxima</td>
-                            <td><strong>{estadisticasGenerales.humedad_maxima?.toFixed(1) ?? 'N/A'} %</strong></td>
-                          </tr>
-                          <tr>
-                            <td><FiDroplet className="me-2 text-primary" />Hum. Mínima</td>
-                            <td><strong>{estadisticasGenerales.humedad_minima?.toFixed(1) ?? 'N/A'} %</strong></td>
-                          </tr>
-                          <tr>
-                            <td><FiClock className="me-2" />Total Lecturas</td>
-                            <td><strong>{estadisticasGenerales.total_lecturas ?? 'N/A'}</strong></td>
-                          </tr>
-                        </tbody>
-                      </Table>
-                    ) : (
-                      <p className="text-center text-muted">No hay datos de resumen disponibles.</p>
-                    )}
-                  </Card.Body>
-                </Card>
-              </Col>
-
-              {/* General Charts Column */}
-              <Col lg={8} md={6} className="mb-4">
-                <Row>
-                  <Col sm={12} className="mb-4">
-                    <Card className="dashboard-card">
-                      <Card.Header>Variación General de Temperatura (Últimas lecturas)</Card.Header>
-                      <Card.Body>
-                        {renderLineChart(
-                          'Variación General de Temperatura',
-                          'Temperatura (°C)',
-                          graficoGeneralTemp,
-                          loadingChartsGeneral
-                        )}
-                      </Card.Body>
-                    </Card>
-                  </Col>
-                  <Col sm={12}>
-                    <Card className="dashboard-card">
-                      <Card.Header>Variación General de Humedad (Últimas lecturas)</Card.Header>
-                      <Card.Body>
-                         {renderLineChart(
-                          'Variación General de Humedad',
-                          'Humedad (%)',
-                          graficoGeneralHum,
-                          loadingChartsGeneral
-                        )}
-                      </Card.Body>
-                    </Card>
-                  </Col>
-                </Row>
-              </Col>
-            </Row>
-
-            {/* Comparative Charts Row */}
-            <Row>
-              <Col md={6} className="mb-4">
-                <Card className="dashboard-card">
-                  <Card.Header>Temperatura Promedio por Ubicación</Card.Header>
-                  <Card.Body>
-                     {renderBarChart(
-                        'Temperatura Promedio por Ubicación',
-                        'Temperatura (°C)',
-                        graficoComparativoTemp,
-                        loadingUbicacion // Use ubicacion loading state
-                      )}
-                  </Card.Body>
-                </Card>
-              </Col>
-              <Col md={6} className="mb-4">
-                <Card className="dashboard-card">
-                  <Card.Header>Humedad Promedio por Ubicación</Card.Header>
-                  <Card.Body>
-                     {renderBarChart(
-                        'Humedad Promedio por Ubicación',
-                        'Humedad (%)',
-                        graficoComparativoHum,
-                        loadingUbicacion // Use ubicacion loading state
-                      )}
-                  </Card.Body>
-                </Card>
-              </Col>
-            </Row>
+            <EstadisticasGeneral
+              estadisticasGenerales={estadisticasGenerales}
+              graficoGeneralTemp={graficoGeneralTemp}
+              graficoGeneralHum={graficoGeneralHum}
+              graficoComparativoTemp={graficoComparativoTemp}
+              graficoComparativoHum={graficoComparativoHum}
+              loadingGeneral={loadingGeneral} // Para el resumen card
+              loadingChartsGeneral={loadingChartsGeneral} // Para los gráficos de línea generales
+              loadingUbicacion={loadingUbicacion} // Para los gráficos de barra comparativos
+            />
           </Tab>
 
           {/* Pestaña Por Aire */}
           <Tab eventKey="aire" title={<><FiWind className="me-2" /> Por Aire</>}>
-            <Row className="mb-4">
-              <Col md={6}>
-                <Form.Group>
-                  <Form.Label>Seleccionar Aire Acondicionado</Form.Label>
-                  <Form.Select
-                    value={aireSeleccionado || ''}
-                    onChange={e => setAireSeleccionado(e.target.value ? parseInt(e.target.value) : null)}
-                    disabled={loadingGeneral} // Disable while loading aires
-                  >
-                    <option value="">Seleccione un aire acondicionado</option>
-                    {aires.map(aire => (
-                      <option key={aire.id} value={aire.id}>
-                        {aire.nombre} ({aire.ubicacion})
-                      </option>
-                    ))}
-                  </Form.Select>
-                </Form.Group>
-              </Col>
-            </Row>
-
-            {/* Loading indicator for specific AC data */}
-            {loadingAire && (
-              <div className="text-center p-5">
-                <Spinner animation="border" variant="primary" />
-                <p className="mt-3">Cargando estadísticas del aire...</p>
-              </div>
-            )}
-
-            {/* Content when AC is selected and not loading */}
-            {!loadingAire && aireSeleccionado && estadisticasAire ? (
-              <>
-                <Card className="dashboard-card mb-4">
-                  <Card.Header>
-                    <h5 className="mb-0">{estadisticasAire.nombre}</h5>
-                    <small className="text-muted">
-                      <FiMapPin className="me-1" /> {estadisticasAire.ubicacion}
-                    </small>
-                  </Card.Header>
-                  <Card.Body>
-                     <Row>
-                      <Col md={6}>
-                        <Table striped hover size="sm">
-                          <tbody>
-                            <tr>
-                              <td><FiThermometer className="me-2 text-danger" />Temp. Promedio</td>
-                              <td><strong>{estadisticasAire.temperatura_promedio?.toFixed(1) ?? 'N/A'} °C</strong></td>
-                            </tr>
-                            <tr>
-                              <td><FiThermometer className="me-2 text-danger" />Temp. Máxima</td>
-                              <td><strong>{estadisticasAire.temperatura_maxima?.toFixed(1) ?? 'N/A'} °C</strong></td>
-                            </tr>
-                            <tr>
-                              <td><FiThermometer className="me-2 text-danger" />Temp. Mínima</td>
-                              <td><strong>{estadisticasAire.temperatura_minima?.toFixed(1) ?? 'N/A'} °C</strong></td>
-                            </tr>
-                            <tr>
-                              <td><FiThermometer className="me-2 text-danger" />Variación Temp.</td>
-                              <td><strong>±{estadisticasAire.variacion_temperatura?.toFixed(2) ?? 'N/A'} °C</strong></td>
-                            </tr>
-                          </tbody>
-                        </Table>
-                      </Col>
-                      <Col md={6}>
-                        <Table striped hover size="sm">
-                          <tbody>
-                             <tr>
-                              <td><FiDroplet className="me-2 text-primary" />Hum. Promedio</td>
-                              <td><strong>{estadisticasAire.humedad_promedio?.toFixed(1) ?? 'N/A'} %</strong></td>
-                            </tr>
-                            <tr>
-                              <td><FiDroplet className="me-2 text-primary" />Hum. Máxima</td>
-                              <td><strong>{estadisticasAire.humedad_maxima?.toFixed(1) ?? 'N/A'} %</strong></td>
-                            </tr>
-                            <tr>
-                              <td><FiDroplet className="me-2 text-primary" />Hum. Mínima</td>
-                              <td><strong>{estadisticasAire.humedad_minima?.toFixed(1) ?? 'N/A'} %</strong></td>
-                            </tr>
-                             <tr>
-                              <td><FiDroplet className="me-2 text-primary" />Variación Hum.</td>
-                              <td><strong>±{estadisticasAire.variacion_humedad?.toFixed(2) ?? 'N/A'} %</strong></td>
-                            </tr>
-                          </tbody>
-                        </Table>
-                      </Col>
-                    </Row>
-                  </Card.Body>
-                </Card>
-
-                <Row>
-                  <Col md={6} className="mb-4">
-                    <Card className="dashboard-card">
-                      <Card.Header>Variación Temperatura (Últimas lecturas)</Card.Header>
-                      <Card.Body>
-                         {renderLineChart(
-                            `Variación Temperatura - ${estadisticasAire.nombre}`,
-                            'Temperatura (°C)',
-                            graficoAireTemp,
-                            loadingChartsAire
-                          )}
-                      </Card.Body>
-                    </Card>
-                  </Col>
-                  <Col md={6} className="mb-4">
-                    <Card className="dashboard-card">
-                      <Card.Header>Variación Humedad (Últimas lecturas)</Card.Header>
-                      <Card.Body>
-                         {renderLineChart(
-                            `Variación Humedad - ${estadisticasAire.nombre}`,
-                            'Humedad (%)',
-                            graficoAireHum,
-                            loadingChartsAire
-                          )}
-                      </Card.Body>
-                    </Card>
-                  </Col>
-                </Row>
-              </>
-            ) : !loadingAire && !aireSeleccionado ? (
-              // Placeholder when no AC is selected
-              <Card className="dashboard-card">
-                <Card.Body className="text-center p-5">
-                  <FiWind size={50} className="text-muted mb-3" />
-                  <h4>Seleccione un aire acondicionado para ver sus estadísticas detalladas y gráficos.</h4>
-                </Card.Body>
-              </Card>
-            ) : null /* Handles the case where AC is selected but data is null (e.g., error) */}
+            <EstadisticasPorAire
+              aires={aires}
+              aireSeleccionado={aireSeleccionado}
+              setAireSeleccionado={setAireSeleccionado} // Pasar la función para actualizar el estado
+              estadisticasAire={estadisticasAire}
+              graficoAireTemp={graficoAireTemp}
+              graficoAireHum={graficoAireHum}
+              loadingGeneral={loadingGeneral} // Para deshabilitar el select mientras cargan los aires
+              loadingAire={loadingAire} // Para mostrar spinner mientras cargan datos del aire
+              loadingChartsAire={loadingChartsAire} // Para los gráficos del aire
+            />
           </Tab>
 
           {/* Pestaña Por Ubicación */}
           <Tab eventKey="ubicacion" title={<><FiMapPin className="me-2" /> Por Ubicación</>}>
-             <Row className="mb-4">
-              <Col md={6}>
-                <Form.Group>
-                  <Form.Label>Filtrar por Ubicación</Form.Label>
-                  <Form.Select
-                    value={ubicacionSeleccionada || ''}
-                    onChange={e => setUbicacionSeleccionada(e.target.value || null)}
-                     disabled={loadingUbicacion} // Disable while loading
-                  >
-                    <option value="">Todas las ubicaciones</option>
-                    {ubicaciones.map((ubicacion, index) => (
-                      <option key={index} value={ubicacion}>
-                        {ubicacion}
-                      </option>
-                    ))}
-                  </Form.Select>
-                </Form.Group>
-              </Col>
-            </Row>
-
-            <Card className="dashboard-card">
-              <Card.Header>Estadísticas por Ubicación</Card.Header>
-              <Card.Body>
-                 {loadingUbicacion ? (
-                     <div className="text-center p-5"><Spinner animation="border" size="sm" /> Cargando datos...</div>
-                 ) : estadisticasUbicacion.length > 0 ? (
-                  <Table striped hover responsive size="sm">
-                    <thead>
-                      <tr>
-                        <th>Ubicación</th>
-                        <th>Aires</th>
-                        <th>Temp. Promedio</th>
-                        <th>Hum. Promedio</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {estadisticasUbicacion
-                        .filter(e => !ubicacionSeleccionada || e.ubicacion === ubicacionSeleccionada)
-                        .map((est, index) => (
-                          <tr key={index}>
-                            <td>{est.ubicacion}</td>
-                            <td>{est.aires ?? 'N/A'}</td> {/* Display count if available */}
-                            <td>
-                              <FiThermometer className="me-1 text-danger" />
-                              {est.temperatura_promedio?.toFixed(1) ?? 'N/A'} °C
-                            </td>
-                            <td>
-                              <FiDroplet className="me-1 text-primary" />
-                              {est.humedad_promedio?.toFixed(1) ?? 'N/A'} %
-                            </td>
-                          </tr>
-                        ))
-                      }
-                    </tbody>
-                  </Table>
-                ) : (
-                  <div className="text-center p-5 text-muted">No hay datos de ubicaciones disponibles.</div>
-                )}
-              </Card.Body>
-            </Card>
-
-            {/* Optionally, show comparative charts again here, maybe filtered if needed */}
-            {/* For now, the main comparative charts are in the General tab */}
-            {/* If you wanted charts specific to the *selected* location, you'd add them here */}
-
+            <EstadisticasPorUbicacion
+              ubicaciones={ubicaciones}
+              ubicacionSeleccionada={ubicacionSeleccionada}
+              setUbicacionSeleccionada={setUbicacionSeleccionada} // Pasar la función para actualizar el estado
+              estadisticasUbicacion={estadisticasUbicacion}
+              loadingUbicacion={loadingUbicacion} // Para la tabla y el select
+            />
           </Tab>
         </Tabs>
       )}
