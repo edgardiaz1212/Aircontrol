@@ -1,0 +1,37 @@
+# Web Framework
+Flask
+
+# Cross-Origin Resource Sharing (CORS)
+Flask-Cors
+
+# JSON Web Token Authentication
+Flask-JWT-Extended
+
+# ORM (Object-Relational Mapper)
+SQLAlchemy
+
+# Database Driver (Choose ONE based on your DATABASE_URL)
+psycopg2-binary   # For PostgreSQL (most common for production)
+# mysql-connector-python # For MySQL
+# pymssql         # For SQL Server
+# cx_Oracle       # For Oracle
+# (sqlite3 is built-in, no need to list if using SQLite)
+
+# Data Manipulation and Analysis
+pandas
+numpy
+
+# Loading environment variables from .env file
+python-dotenv
+
+# Cryptography (Imported in data_manager, potentially for future use or password handling if not using hashlib directly)
+cryptography
+
+# Password Hashing (Used via hashlib, but passlib is a common alternative/addition)
+# passlib[bcrypt] # Uncomment if you decide to use passlib for hashing instead of/in addition to hashlib
+
+# Plotting library (Used in utils.py)
+plotly
+
+# WSGI HTTP Server (Recommended for Production)
+gunicorn
