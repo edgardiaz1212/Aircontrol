@@ -149,18 +149,26 @@ class DataManager:
         return False
     
     def agregar_lectura(self, aire_id, fecha, temperatura, humedad):
-        # Crear nueva lectura en la base de datos
-        nueva_lectura = Lectura(
-            aire_id=aire_id,
-            fecha=fecha,
-            temperatura=temperatura,
-            humedad=humedad
-        )
-        
-        session.add(nueva_lectura)
-        session.commit()
-        
-        return nueva_lectura.id
+        try:
+            # Crear nueva lectura en la base de datos
+            nueva_lectura = Lectura(
+                aire_id=aire_id,
+                fecha=fecha, # Asegúrate que la columna 'fecha' en tu BD acepte datetime
+                temperatura=temperatura,
+                humedad=humedad
+            )
+
+            session.add(nueva_lectura)
+            session.flush() # Opcional: asigna el ID antes del commit
+            session.commit() # Intentar guardar en la BD
+
+            return nueva_lectura.id # Devolver ID si el commit fue exitoso
+
+        except Exception as e:
+            print(f"!!! ERROR en data_manager.agregar_lectura: {e}", file=sys.stderr)
+            traceback.print_exc() # Imprime el traceback completo en la consola del servidor
+            session.rollback() # MUY IMPORTANTE: Deshacer cambios en la sesión si hubo error
+            return None # Indicar fallo a la función que llamó (app.py)
     
     def obtener_lecturas_por_aire(self, aire_id):
         # Consultar lecturas de un aire específico

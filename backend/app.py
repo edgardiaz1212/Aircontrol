@@ -1,3 +1,5 @@
+from database import init_db, session, Usuario, Lectura, AireAcondicionado # Asegúrate que session y Lectura estén aquí
+from data_manager import DataManager
 from flask import Flask, jsonify, request, session
 from flask_cors import CORS
 from flask_jwt_extended import (
@@ -7,11 +9,13 @@ from flask_jwt_extended import (
     get_jwt_identity,
     get_jwt
 )
-from datetime import timedelta
+from datetime import timedelta, datetime
 import pandas as pd
 import os
 import sys
 from dotenv import load_dotenv
+import traceback
+
 
 # Load environment variables
 load_dotenv()
@@ -44,10 +48,10 @@ jwt = JWTManager(app)
 # Configurar manejadores de errores para JWT
 @jwt.invalid_token_loader
 def invalid_token_callback(error):
-    print("\n=== JWT Validation Failed ===")
-    print(f"Error: {error}")
-    print(f"Authorization Header: {request.headers.get('Authorization')}")
-    print(f"Current JWT_SECRET_KEY: {app.config['JWT_SECRET_KEY']}")
+    # print("\n=== JWT Validation Failed ===")
+    # print(f"Error: {error}")
+    # print(f"Authorization Header: {request.headers.get('Authorization')}")
+    # print(f"Current JWT_SECRET_KEY: {app.config['JWT_SECRET_KEY']}")
     return jsonify({
         'success': False,
         'mensaje': 'Token inválido',
@@ -166,7 +170,7 @@ def register():
     else:
         return jsonify({'success': False, 'mensaje': 'El email o nombre de usuario ya están en uso'})
 
-@app.route('/api/admin/users', methods=['POST']) # Nueva ruta específica para admin
+@app.route('/api/admin/users', methods=['POST']) # Nueva ruta específica para admin crear usuarios
 @jwt_required()
 def admin_create_user():
     # 1. Verificar que el usuario actual es administrador
@@ -180,7 +184,7 @@ def admin_create_user():
     apellido = data.get('apellido')
     email = data.get('email')
     username = data.get('username')
-    password = data.get('password') # Considera si el admin debe poner una contraseña o si se genera una temporal
+    password = data.get('password') 
     rol = data.get('rol') # El admin puede especificar el rol
 
     # 3. Validar datos requeridos
@@ -327,24 +331,86 @@ def get_lecturas():
 @jwt_required()
 def add_lectura():
     data = request.get_json()
+    if not data:
+         return jsonify({'success': False, 'mensaje': 'No se recibieron datos JSON'}), 400
+
     aire_id = data.get('aire_id')
-    fecha_str = data.get('fecha')
-    hora_str = data.get('hora')
+    fecha_hora_str = data.get('fecha_hora') # <-- LEER 'fecha_hora'
     temperatura = data.get('temperatura')
     humedad = data.get('humedad')
-    
-    if not (aire_id and fecha_str and hora_str and temperatura is not None and humedad is not None):
-        return jsonify({'success': False, 'mensaje': 'Todos los campos son requeridos'})
-    
-    fecha_hora_str = f"{fecha_str} {hora_str}"
-    fecha_dt = pd.to_datetime(fecha_hora_str)
-    
+
+    # Validación más robusta
+    errors = {}
+    if not aire_id: errors['aire_id'] = 'El ID del aire es requerido'
+    if not fecha_hora_str: errors['fecha_hora'] = 'La fecha y hora son requeridas'
+    if temperatura is None: errors['temperatura'] = 'La temperatura es requerida'
+    if humedad is None: errors['humedad'] = 'La humedad es requerida'
+
+    # Intentar convertir tipos y validar
+    try:
+        if aire_id: aire_id = int(aire_id)
+    except (ValueError, TypeError):
+        errors['aire_id'] = 'El ID del aire debe ser un número entero'
+
+    try:
+        if temperatura is not None: temperatura = float(temperatura)
+    except (ValueError, TypeError):
+         errors['temperatura'] = 'La temperatura debe ser un número'
+
+    try:
+        if humedad is not None: humedad = float(humedad)
+    except (ValueError, TypeError):
+         errors['humedad'] = 'La humedad debe ser un número'
+
+    fecha_dt = None
+    if fecha_hora_str:
+        try:
+            # Intenta parsear el formato esperado 'YYYY-MM-DD HH:MM:SS'
+            fecha_dt = datetime.strptime(fecha_hora_str, '%Y-%m-%d %H:%M:%S')
+        except ValueError:
+            errors['fecha_hora'] = "Formato de fecha y hora inválido. Use 'YYYY-MM-DD HH:MM:SS'"
+
+    if errors:
+        # Devolver 400 Bad Request si hay errores de validación
+        return jsonify({'success': False, 'mensaje': 'Datos inválidos', 'errors': errors}), 400
+
+    # Llamar al data_manager con los datos validados y convertidos
     lectura_id = data_manager.agregar_lectura(aire_id, fecha_dt, temperatura, humedad)
-    
+
     if lectura_id:
-        return jsonify({'success': True, 'mensaje': 'Lectura registrada exitosamente', 'id': lectura_id})
+        # Devolver 201 Created en éxito
+        # También devuelve la fecha guardada para consistencia (opcional pero bueno)
+
+        # --- CORRECCIÓN AQUÍ ---
+        # Usa la 'session' importada directamente, no 'data_manager.session'
+        try:
+            lectura_guardada = session.query(Lectura).get(lectura_id) # Obtener la lectura recién guardada
+            if lectura_guardada:
+                fecha_guardada_str = lectura_guardada.fecha.strftime('%Y-%m-%d %H:%M:%S')
+            else:
+                # Fallback si por alguna razón no se encuentra la lectura (poco probable si lectura_id es válido)
+                fecha_guardada_str = fecha_hora_str
+                print(f"ADVERTENCIA: No se encontró la lectura recién guardada con ID {lectura_id} para obtener la fecha exacta.", file=sys.stderr)
+
+            return jsonify({
+                'success': True,
+                'mensaje': 'Lectura registrada exitosamente',
+                'id': lectura_id,
+                'fecha': fecha_guardada_str # Devuelve la fecha como fue guardada
+                }), 201
+        except Exception as e:
+            print(f"!!! ERROR al obtener la lectura recién guardada (ID: {lectura_id}): {e}", file=sys.stderr)
+            traceback.print_exc()
+            # Aún así, la lectura se guardó, podrías devolver éxito pero sin la fecha exacta
+            return jsonify({
+                'success': True,
+                'mensaje': 'Lectura registrada, pero hubo un error al recuperar detalles.',
+                'id': lectura_id
+                }), 201 # O considera un 200 OK con advertencia
+
     else:
-        return jsonify({'success': False, 'mensaje': 'Error al registrar la lectura'})
+        # Devolver 500 Internal Server Error si data_manager falló
+        return jsonify({'success': False, 'mensaje': 'Error interno al registrar la lectura'}), 500
 
 @app.route('/api/lecturas/<int:lectura_id>', methods=['DELETE'])
 @jwt_required()
