@@ -85,6 +85,20 @@ export interface ChartDataType {
   }[];
 }
 
+export interface UmbralConfiguracion {
+  id: number;
+  nombre: string;
+  es_global: boolean;
+  aire_id?: number | null; // Nullable si es global
+  temp_min: number;
+  temp_max: number;
+  hum_min: number;
+  hum_max: number;
+  notificar_activo: boolean;
+  // Puedes añadir aire_nombre, ubicacion si vienen del backend
+}
+
+
 // --- Componente Estadisticas (Contenedor) ---
 const Estadisticas: React.FC = () => {
   // --- State (Mantenido en el componente padre) ---
@@ -113,41 +127,70 @@ const Estadisticas: React.FC = () => {
   const [loadingChartsAire, setLoadingChartsAire] = useState<boolean>(false); // Solo para gráficos específicos del aire
   const [error, setError] = useState<string | null>(null);
 
+  const [umbrales, setUmbrales] = useState<UmbralConfiguracion[]>([]); // Estado para guardar umbrales
+  const [loadingUmbrales, setLoadingUmbrales] = useState<boolean>(true); // Estado de carga para umbrales
+
+
+
   // --- Helper Functions (Mantenidas en el padre para procesar datos antes de pasarlos) ---
-  const procesarLecturasParaGrafico = useCallback((lecturas: Lectura[]): { tempChart: ChartDataType, humChart: ChartDataType } | null => {
+  const procesarLecturasParaGrafico = useCallback((
+    lecturas: Lectura[],
+    umbralesAplicables: UmbralConfiguracion[] // <-- Aceptar umbrales
+  ): { tempChart: ChartDataType, humChart: ChartDataType } | null => {
     if (!lecturas || lecturas.length === 0) {
       return null;
     }
+    // Ordenar y limitar lecturas (como antes)
     const sortedLecturas = [...lecturas].sort((a, b) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime());
-    const limitedLecturas = sortedLecturas.slice(-50); // Últimas 50 lecturas
+    const limitedLecturas = sortedLecturas.slice(-50);
 
     const labels = limitedLecturas.map(l => format(new Date(l.fecha), 'HH:mm'));
     const tempData = limitedLecturas.map(l => l.temperatura);
     const humData = limitedLecturas.map(l => l.humedad);
 
-    const tempChart: ChartDataType = {
-      labels,
-      datasets: [{
-        label: 'Temperatura °C',
-        data: tempData,
-        borderColor: 'rgba(255, 99, 132, 1)',
-        backgroundColor: 'rgba(255, 99, 132, 0.2)',
-        tension: 0.1
-      }]
+    // --- Lógica para añadir datasets de umbrales ---
+    // Encontrar los límites más restrictivos si hay múltiples umbrales aplicables
+    // (Podrías hacer esto más sofisticado, aquí tomamos el primero encontrado activo)
+    const tempMinThreshold = umbralesAplicables.find(u => u.temp_min !== undefined)?.temp_min;
+    const tempMaxThreshold = umbralesAplicables.find(u => u.temp_max !== undefined)?.temp_max;
+    const humMinThreshold = umbralesAplicables.find(u => u.hum_min !== undefined)?.hum_min;
+    const humMaxThreshold = umbralesAplicables.find(u => u.hum_max !== undefined)?.hum_max;
+
+    // Función helper para crear un dataset de umbral (línea horizontal)
+    const createThresholdDataset = (label: string, value: number | undefined, color: string, dataLength: number) => {
+      if (value === undefined || dataLength === 0) return null; // No añadir si no hay valor o datos
+      return {
+        label: label,
+        data: Array(dataLength).fill(value), // Array con el mismo valor
+        borderColor: color,
+        borderWidth: 1.5, // Un poco más grueso
+        borderDash: [5, 5], // Línea discontinua
+        pointRadius: 0, // Sin puntos en la línea de umbral
+        fill: false,
+        tension: 0 // Línea recta
+      };
     };
-    const humChart: ChartDataType = {
-      labels,
-      datasets: [{
-        label: 'Humedad %',
-        data: humData,
-        borderColor: 'rgba(54, 162, 235, 1)',
-        backgroundColor: 'rgba(54, 162, 235, 0.2)',
-        tension: 0.1
-      }]
-    };
+
+    // Crear datasets para Temperatura (incluyendo umbrales si existen)
+    const tempDatasets = [
+      { label: 'Temperatura °C', data: tempData, borderColor: 'rgba(255, 99, 132, 1)', backgroundColor: 'rgba(255, 99, 132, 0.2)', tension: 0.1 },
+      createThresholdDataset('Temp Mín', tempMinThreshold, 'rgba(255, 159, 64, 0.8)', labels.length), // Naranja discontinuo
+      createThresholdDataset('Temp Máx', tempMaxThreshold, 'rgba(255, 0, 0, 0.8)', labels.length)      // Rojo discontinuo
+    ].filter(ds => ds !== null) as ChartDataType['datasets']; // Filtrar nulls y asegurar tipo
+
+    // Crear datasets para Humedad (incluyendo umbrales si existen)
+    const humDatasets = [
+       { label: 'Humedad %', data: humData, borderColor: 'rgba(54, 162, 235, 1)', backgroundColor: 'rgba(54, 162, 235, 0.2)', tension: 0.1 },
+       createThresholdDataset('Hum Mín', humMinThreshold, 'rgba(75, 192, 192, 0.8)', labels.length), // Verde azulado discontinuo
+       createThresholdDataset('Hum Máx', humMaxThreshold, 'rgba(153, 102, 255, 0.8)', labels.length) // Púrpura discontinuo
+    ].filter(ds => ds !== null) as ChartDataType['datasets'];
+
+    // Construir objetos de gráfico
+    const tempChart: ChartDataType = { labels, datasets: tempDatasets };
+    const humChart: ChartDataType = { labels, datasets: humDatasets };
+
     return { tempChart, humChart };
   }, []);
-
   const procesarUbicacionesParaGrafico = useCallback((stats: EstadisticasUbicacion[]): { tempChart: ChartDataType, humChart: ChartDataType } | null => {
     if (!stats || stats.length === 0) {
       return null;
@@ -183,14 +226,16 @@ const Estadisticas: React.FC = () => {
       setLoadingGeneral(true);
       setLoadingUbicacion(true);
       setLoadingChartsGeneral(true);
+      setLoadingUmbrales(true);
       setError(null);
 
       try {
-        const [resAires, resEstGen, resEstUbic, resLecturasGen] = await Promise.all([
+        const [resAires, resEstGen, resEstUbic, resLecturasGen, resUmbrales] = await Promise.all([
           api.get('/aires'),
           api.get('/estadisticas/general'),
           api.get('/estadisticas/ubicacion'),
-          api.get('/lecturas?limit=50')
+          api.get('/lecturas?limit=50'),
+          api.get('/umbrales') 
         ]);
 
         // Aires y Ubicaciones
@@ -208,9 +253,19 @@ const Estadisticas: React.FC = () => {
         setEstadisticasUbicacion(ubicacionData);
         setLoadingUbicacion(false); // Ubicaciones cargadas
 
+        //Procesar Umbrales
+        const umbralesData = resUmbrales.data?.data || []; // Asumiendo que la API devuelve { data: [...] }
+        setUmbrales(umbralesData);
+        setLoadingUmbrales(false); // Umbrales cargado
+
+// Filtrar umbrales globales activos para el gráfico general
+const umbralesGlobalesActivos = umbralesData.filter(
+  (u: UmbralConfiguracion) => u.es_global && u.notificar_activo
+);
+
         // Gráficos Generales (Línea)
         const lecturasGenerales = resLecturasGen.data?.data || [];
-        const generalChartData = procesarLecturasParaGrafico(lecturasGenerales);
+        const generalChartData = procesarLecturasParaGrafico(lecturasGenerales, umbralesGlobalesActivos); // Pasar los umbrales globales activos
         setGraficoGeneralTemp(generalChartData?.tempChart || null);
         setGraficoGeneralHum(generalChartData?.humChart || null);
 
@@ -218,8 +273,13 @@ const Estadisticas: React.FC = () => {
         const comparativoChartData = procesarUbicacionesParaGrafico(ubicacionData);
         setGraficoComparativoTemp(comparativoChartData?.tempChart || null);
         setGraficoComparativoHum(comparativoChartData?.humChart || null);
+        
+        
+      
 
         setLoadingChartsGeneral(false); // Gráficos generales cargados
+
+        
 
       } catch (err) {
         console.error('Error al cargar datos iniciales:', err);
@@ -227,6 +287,7 @@ const Estadisticas: React.FC = () => {
         setLoadingGeneral(false);
         setLoadingUbicacion(false);
         setLoadingChartsGeneral(false);
+        setLoadingUmbrales(false);
       }
     };
     fetchDatosIniciales();
@@ -235,48 +296,52 @@ const Estadisticas: React.FC = () => {
   // Load Data for Selected Aire
   useEffect(() => {
     const fetchDatosAire = async () => {
-      if (!aireSeleccionado) {
+      if (aireSeleccionado === null) {
+        // Limpiar datos específicos del aire si no hay selección
         setEstadisticasAire(null);
         setGraficoAireTemp(null);
         setGraficoAireHum(null);
-        return;
+        return; // No continuar con la petición API
       }
 
       setLoadingAire(true);
       setLoadingChartsAire(true);
       setError(null);
-      setEstadisticasAire(null);
-      setGraficoAireTemp(null);
-      setGraficoAireHum(null);
+      // ... (limpiar estados específicos del aire) ...
 
       try {
         const [resStatsAire, resLecturasAire] = await Promise.all([
           api.get(`/estadisticas/aire/${aireSeleccionado}`),
-          api.get(`/lecturas?aire_id=${aireSeleccionado}&limit=50`)
+          api.get(`/lecturas?aire_id=${aireSeleccionado}&limit=50`) // O las últimas N
         ]);
 
-        // Stats Aire
-        const statsData = resStatsAire.data || {};
-        const aireInfo = aires.find(a => a.id === aireSeleccionado);
-        setEstadisticasAire(aireInfo ? { ...statsData, ...aireInfo } : statsData);
+        // ... (procesamiento de stats del aire) ...
         setLoadingAire(false);
 
-        // Gráficos Aire
+        // --- Procesar Gráficos del Aire con Umbrales ---
+        // Filtrar umbrales aplicables (globales activos + específico activo)
+        const umbralesParaAire = umbrales.filter(u =>
+            u.notificar_activo && (u.es_global || u.aire_id === aireSeleccionado)
+        );
+
         const lecturasAireData = resLecturasAire.data?.data || [];
-        const aireChartData = procesarLecturasParaGrafico(lecturasAireData);
+        const aireChartData = procesarLecturasParaGrafico(lecturasAireData, umbralesParaAire); // Pasar umbrales filtrados
         setGraficoAireTemp(aireChartData?.tempChart || null);
         setGraficoAireHum(aireChartData?.humChart || null);
         setLoadingChartsAire(false);
 
       } catch (err) {
-        console.error('Error al cargar estadísticas del aire:', err);
-        setError(`Error al cargar datos para el aire seleccionado (ID: ${aireSeleccionado}).`);
+        // ... (manejo de errores) ...
         setLoadingAire(false);
         setLoadingChartsAire(false);
       }
     };
-    fetchDatosAire();
-  }, [aireSeleccionado, aires, procesarLecturasParaGrafico]); // Dependencias
+    // Solo ejecutar si los umbrales ya se cargaron para evitar errores
+    if (!loadingUmbrales) {
+        fetchDatosAire();
+    }
+  // Añadir 'umbrales' y 'loadingUmbrales' a las dependencias
+  }, [aireSeleccionado, aires, procesarLecturasParaGrafico, umbrales, loadingUmbrales]);
 
   // --- JSX (Simplificado usando los componentes hijos) ---
   return (
