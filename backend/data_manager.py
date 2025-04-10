@@ -38,7 +38,7 @@ class DataManager:
                 aires_df = pd.read_csv(self.aires_file)
                 for _, row in aires_df.iterrows():
                     aire = AireAcondicionado(
-                        id=int(row['id']),
+                        
                         nombre=row['nombre'],
                         ubicacion=row['ubicacion'],
                         fecha_instalacion=row['fecha_instalacion']
@@ -1136,16 +1136,12 @@ class DataManager:
 
     def contar_alertas_activas(self):
         """
-        Cuenta el número de alertas activas (basado en la última lectura de cada aire
-        y los umbrales configurados).
-        NOTA: Esta es una implementación básica. Podría optimizarse o basarse
-              en una tabla de alertas separada si la lógica se vuelve compleja.
-
-        Returns:
-            int: Número de aires con lecturas fuera de umbrales activos.
+        Cuenta el número de alertas activas...
         """
+        print("\n--- [DEBUG] Iniciando contar_alertas_activas ---") # <-- DEBUG START
         try:
             # 1. Obtener la última lectura de cada aire
+            print("[DEBUG] Obteniendo últimas lecturas...") # <-- DEBUG
             subquery = session.query(
                 Lectura.aire_id,
                 func.max(Lectura.fecha).label('max_fecha')
@@ -1155,46 +1151,102 @@ class DataManager:
                 subquery,
                 (Lectura.aire_id == subquery.c.aire_id) & (Lectura.fecha == subquery.c.max_fecha)
             ).all()
+            print(f"[DEBUG] Últimas lecturas encontradas: {len(ultimas_lecturas)}") # <-- DEBUG
+            # for lec in ultimas_lecturas: # Descomentar si necesitas ver detalles
+            #     print(f"  [DEBUG] Aire ID: {lec.aire_id}, Fecha: {lec.fecha}, Temp: {lec.temperatura}, Hum: {lec.humedad}")
 
             # 2. Obtener todos los umbrales activos
-            umbrales_activos_df = self.obtener_umbrales_configuracion()
-            umbrales_activos_df = umbrales_activos_df[umbrales_activos_df['notificar_activo'] == True]
+            print("[DEBUG] Obteniendo umbrales...") # <-- DEBUG
+            umbrales_todos_df = self.obtener_umbrales_configuracion() # Obtener TODOS primero
+            print(f"[DEBUG] Total umbrales obtenidos (antes de filtrar): {len(umbrales_todos_df)}") # <-- DEBUG
+            # print(umbrales_todos_df) # Descomentar para ver todos los umbrales
+
+            umbrales_activos_df = umbrales_todos_df[umbrales_todos_df['notificar_activo'] == True]
+            print(f"[DEBUG] Umbrales ACTIVOS filtrados: {len(umbrales_activos_df)}") # <-- DEBUG
+            # print(umbrales_activos_df) # Descomentar para ver los activos
 
             if umbrales_activos_df.empty:
+                print("[DEBUG] No hay umbrales activos. Devolviendo 0.") # <-- DEBUG
                 return 0 # No hay umbrales activos, no puede haber alertas
 
             # 3. Verificar cada última lectura contra los umbrales aplicables
             alertas_count = 0
             aires_con_alerta = set() # Para no contar el mismo aire múltiples veces
+            print("[DEBUG] Iniciando verificación de lecturas vs umbrales...") # <-- DEBUG
 
             for lectura in ultimas_lecturas:
+                print(f"\n[DEBUG] Verificando Aire ID: {lectura.aire_id} (T:{lectura.temperatura}, H:{lectura.humedad})") # <-- DEBUG
                 # Encontrar umbrales aplicables (específico del aire o global)
-                umbrales_aplicables = umbrales_activos_df[
-                    (umbrales_activos_df['es_global'] == True) |
-                    (umbrales_activos_df['aire_id'] == lectura.aire_id)
-                ]
+                # Asegurarse que la comparación de aire_id funciona (tipos)
+                # umbrales_activos_df['aire_id'] puede ser NaN para globales, lectura.aire_id es int
+                try:
+                    # Convertir aire_id del DF a Int64 para manejar NaN y comparar con int
+                    col_aire_id_df = pd.to_numeric(umbrales_activos_df['aire_id'], errors='coerce').astype('Int64')
+                    umbrales_aplicables = umbrales_activos_df[
+                        (umbrales_activos_df['es_global'] == True) |
+                        (col_aire_id_df == lectura.aire_id) # Comparación más segura
+                    ]
+                except Exception as e_filter:
+                     print(f"[ERROR-DEBUG] Error al filtrar umbrales aplicables: {e_filter}")
+                     umbrales_aplicables = pd.DataFrame() # Vacío para evitar más errores
+
+
+                print(f"[DEBUG]   Umbrales aplicables para este aire: {len(umbrales_aplicables)}") # <-- DEBUG
+                # print(umbrales_aplicables[['id', 'nombre', 'es_global', 'aire_id', 'temp_min', 'temp_max', 'hum_min', 'hum_max']]) # Descomentar para detalles
 
                 if umbrales_aplicables.empty:
+                    print("[DEBUG]   No hay umbrales aplicables para este aire.") # <-- DEBUG
                     continue # No hay umbrales para este aire
 
                 # Verificar si la lectura está fuera de CUALQUIER umbral aplicable
+                alerta_encontrada_para_este_aire = False
                 for _, umbral in umbrales_aplicables.iterrows():
-                    fuera_limite = (
-                        lectura.temperatura < umbral['temp_min'] or
-                        lectura.temperatura > umbral['temp_max'] or
-                        lectura.humedad < umbral['hum_min'] or
-                        lectura.humedad > umbral['hum_max']
-                    )
-                    if fuera_limite:
-                        if lectura.aire_id not in aires_con_alerta:
-                            alertas_count += 1
-                            aires_con_alerta.add(lectura.aire_id)
-                        break # Pasamos al siguiente aire si ya encontramos una alerta para este
+                    print(f"[DEBUG]     Comparando con Umbral ID: {umbral['id']} (T:[{umbral['temp_min']},{umbral['temp_max']}], H:[{umbral['hum_min']},{umbral['hum_max']}])") # <-- DEBUG
+                    try:
+                        # Convertir a float por si acaso vienen como string o algo inesperado
+                        temp_lectura = float(lectura.temperatura)
+                        hum_lectura = float(lectura.humedad)
+                        temp_min = float(umbral['temp_min'])
+                        temp_max = float(umbral['temp_max'])
+                        hum_min = float(umbral['hum_min'])
+                        hum_max = float(umbral['hum_max'])
 
+                        fuera_limite_temp = (
+                            temp_lectura < temp_min or
+                            temp_lectura > temp_max
+                        )
+                        fuera_limite_hum = (
+                            hum_lectura < hum_min or
+                            hum_lectura > hum_max
+                        )
+                        print(f"[DEBUG]       Temp fuera: {fuera_limite_temp} ({temp_lectura} vs [{temp_min}, {temp_max}])") # <-- DEBUG
+                        print(f"[DEBUG]       Hum fuera: {fuera_limite_hum} ({hum_lectura} vs [{hum_min}, {hum_max}])") # <-- DEBUG
+
+                        if fuera_limite_temp or fuera_limite_hum:
+                            print(f"[DEBUG]       ¡VIOLACIÓN DETECTADA por umbral {umbral['id']}!") # <-- DEBUG
+                            alerta_encontrada_para_este_aire = True
+                            if lectura.aire_id not in aires_con_alerta:
+                                print(f"[DEBUG]       Añadiendo Aire ID {lectura.aire_id} a alertas. Incrementando contador.") # <-- DEBUG
+                                alertas_count += 1
+                                aires_con_alerta.add(lectura.aire_id)
+                            else:
+                                print(f"[DEBUG]       Aire ID {lectura.aire_id} ya estaba en alertas.") # <-- DEBUG
+                            break # Pasamos al siguiente aire si ya encontramos una alerta para este
+                        else:
+                             print(f"[DEBUG]       Dentro de límites para umbral {umbral['id']}.") # <-- DEBUG
+                    except Exception as e_compare:
+                        print(f"[ERROR-DEBUG] Error al comparar lectura con umbral {umbral['id']}: {e_compare}") # <-- DEBUG
+
+
+                if not alerta_encontrada_para_este_aire:
+                     print(f"[DEBUG]   Lectura DENTRO de todos los umbrales aplicables para Aire ID {lectura.aire_id}.") # <-- DEBUG
+
+
+            print(f"\n--- [DEBUG] Fin contar_alertas_activas. Total alertas contadas: {alertas_count} ---") # <-- DEBUG
             return alertas_count
 
         except Exception as e:
-            print(f"Error al contar alertas activas: {e}")
+            print(f"!!! ERROR GENERAL en contar_alertas_activas: {e}", file=sys.stderr) # <-- DEBUG ERROR
             traceback.print_exc()
             return 0 # Return 0 on error
 
