@@ -35,8 +35,12 @@ app.config['JWT_TOKEN_LOCATION'] = ['headers']
 app.config['JWT_HEADER_NAME'] = 'Authorization'
 app.config['JWT_HEADER_TYPE'] = 'Bearer'
 
-# Habilitar CORS para permitir solicitudes desde el frontend
-CORS(app, resources={r"/*": {"origins": "*"}}, supports_credentials=True)
+# Habilitar CORS para permitir solicitudes desde el frontend con credenciales
+CORS(app, 
+     resources={r"/*": {"origins": "http://localhost:3000"}},  # Update with your frontend URL
+     supports_credentials=True,
+     allow_headers=["Content-Type", "Authorization"],
+     expose_headers=["Authorization"])
 
 # Inicializar JWT
 jwt = JWTManager(app)

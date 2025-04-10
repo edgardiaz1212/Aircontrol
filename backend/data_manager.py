@@ -6,7 +6,8 @@ from datetime import datetime
 from database import session, AireAcondicionado, Lectura, Mantenimiento, UmbralConfiguracion, Usuario, init_db
 from cryptography.fernet import Fernet
 import hashlib
-from sqlalchemy import func, distinct
+from sqlalchemy import func, distinct, desc
+from sqlalchemy.orm import aliased
 import traceback
 import sys
 
@@ -1069,3 +1070,157 @@ class DataManager:
         )
         
         return True
+    
+    def contar_aires(self):
+        """
+        Cuenta el número total de aires acondicionados registrados.
+
+        Returns:
+            int: Número total de aires.
+        """
+        try:
+            return session.query(func.count(AireAcondicionado.id)).scalar() or 0
+        except Exception as e:
+            print(f"Error al contar aires: {e}")
+            return 0 # Return 0 on error
+
+    def contar_lecturas(self):
+        """
+        Cuenta el número total de lecturas registradas.
+
+        Returns:
+            int: Número total de lecturas.
+        """
+        try:
+            return session.query(func.count(Lectura.id)).scalar() or 0
+        except Exception as e:
+            print(f"Error al contar lecturas: {e}")
+            return 0 # Return 0 on error
+
+    def contar_mantenimientos(self):
+        """
+        Cuenta el número total de mantenimientos registrados.
+
+        Returns:
+            int: Número total de mantenimientos.
+        """
+        try:
+            return session.query(func.count(Mantenimiento.id)).scalar() or 0
+        except Exception as e:
+            print(f"Error al contar mantenimientos: {e}")
+            return 0 # Return 0 on error
+
+    def contar_alertas_activas(self):
+        """
+        Cuenta el número de alertas activas (basado en la última lectura de cada aire
+        y los umbrales configurados).
+        NOTA: Esta es una implementación básica. Podría optimizarse o basarse
+              en una tabla de alertas separada si la lógica se vuelve compleja.
+
+        Returns:
+            int: Número de aires con lecturas fuera de umbrales activos.
+        """
+        try:
+            # 1. Obtener la última lectura de cada aire
+            subquery = session.query(
+                Lectura.aire_id,
+                func.max(Lectura.fecha).label('max_fecha')
+            ).group_by(Lectura.aire_id).subquery()
+
+            ultimas_lecturas = session.query(Lectura).join(
+                subquery,
+                (Lectura.aire_id == subquery.c.aire_id) & (Lectura.fecha == subquery.c.max_fecha)
+            ).all()
+
+            # 2. Obtener todos los umbrales activos
+            umbrales_activos_df = self.obtener_umbrales_configuracion()
+            umbrales_activos_df = umbrales_activos_df[umbrales_activos_df['notificar_activo'] == True]
+
+            if umbrales_activos_df.empty:
+                return 0 # No hay umbrales activos, no puede haber alertas
+
+            # 3. Verificar cada última lectura contra los umbrales aplicables
+            alertas_count = 0
+            aires_con_alerta = set() # Para no contar el mismo aire múltiples veces
+
+            for lectura in ultimas_lecturas:
+                # Encontrar umbrales aplicables (específico del aire o global)
+                umbrales_aplicables = umbrales_activos_df[
+                    (umbrales_activos_df['es_global'] == True) |
+                    (umbrales_activos_df['aire_id'] == lectura.aire_id)
+                ]
+
+                if umbrales_aplicables.empty:
+                    continue # No hay umbrales para este aire
+
+                # Verificar si la lectura está fuera de CUALQUIER umbral aplicable
+                for _, umbral in umbrales_aplicables.iterrows():
+                    fuera_limite = (
+                        lectura.temperatura < umbral['temp_min'] or
+                        lectura.temperatura > umbral['temp_max'] or
+                        lectura.humedad < umbral['hum_min'] or
+                        lectura.humedad > umbral['hum_max']
+                    )
+                    if fuera_limite:
+                        if lectura.aire_id not in aires_con_alerta:
+                            alertas_count += 1
+                            aires_con_alerta.add(lectura.aire_id)
+                        break # Pasamos al siguiente aire si ya encontramos una alerta para este
+
+            return alertas_count
+
+        except Exception as e:
+            print(f"Error al contar alertas activas: {e}")
+            traceback.print_exc()
+            return 0 # Return 0 on error
+
+    def obtener_ultimas_lecturas_con_info_aire(self, limite=5):
+        """
+        Obtiene las últimas N lecturas registradas, incluyendo información
+        del aire acondicionado asociado (nombre, ubicación).
+
+        Args:
+            limite (int): Número máximo de lecturas a devolver.
+
+        Returns:
+            pd.DataFrame: DataFrame con las últimas lecturas y datos del aire.
+                          Columnas esperadas por la API: id (lectura), aire_id,
+                          nombre_aire, ubicacion_aire, temperatura, humedad, fecha.
+        """
+        try:
+            # Alias para las tablas para claridad en el join
+            LecturaAlias = aliased(Lectura)
+            AireAlias = aliased(AireAcondicionado)
+
+            # Consulta para obtener las últimas lecturas con join a la tabla de aires
+            query = session.query(
+                LecturaAlias.id,
+                LecturaAlias.aire_id,
+                AireAlias.nombre.label('nombre_aire'),
+                AireAlias.ubicacion.label('ubicacion_aire'),
+                LecturaAlias.temperatura,
+                LecturaAlias.humedad,
+                LecturaAlias.fecha
+            ).join(
+                AireAlias, LecturaAlias.aire_id == AireAlias.id
+            ).order_by(
+                desc(LecturaAlias.fecha) # Ordenar por fecha descendente
+            ).limit(limite) # Limitar el número de resultados
+
+            # Ejecutar la consulta y convertir a DataFrame
+            ultimas_lecturas = query.all()
+
+            # Convertir a DataFrame (SQLAlchemy >= 1.4)
+            # Si usas una versión anterior, puedes necesitar pd.read_sql(query.statement, session.bind)
+            # o iterar manualmente sobre los resultados para crear la lista de diccionarios.
+            df = pd.DataFrame(ultimas_lecturas, columns=[
+                'id', 'aire_id', 'nombre_aire', 'ubicacion_aire',
+                'temperatura', 'humedad', 'fecha'
+            ])
+
+            return df
+
+        except Exception as e:
+            print(f"Error al obtener últimas lecturas con info aire: {e}")
+            traceback.print_exc()
+            return pd.DataFrame() # Devolver DataFrame vacío en caso de error
