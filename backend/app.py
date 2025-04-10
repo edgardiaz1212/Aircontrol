@@ -469,6 +469,7 @@ def delete_mantenimiento(mantenimiento_id):
         return jsonify({'success': False, 'mensaje': 'Error al eliminar el mantenimiento'})
 
 # Rutas para umbrales
+# app.py - get_umbrales (Corregido)
 @app.route('/api/umbrales', methods=['GET'])
 @jwt_required()
 def get_umbrales():
@@ -477,10 +478,17 @@ def get_umbrales():
     
     umbrales_df = data_manager.obtener_umbrales_configuracion(aire_id, solo_globales)
     
+    # Devolver estructura consistente incluso si está vacío
     if umbrales_df.empty:
-        return jsonify([])
+        return jsonify({'success': True, 'data': []}) # Envuelto en {'data': []}
     
     umbrales = []
+    # Obtener todos los aires una vez para eficiencia si hay umbrales específicos
+    aires_dict = {}
+    if not umbrales_df[umbrales_df['es_global'] == False].empty:
+         aires_df = data_manager.obtener_aires()
+         aires_dict = {row['id']: {'nombre': row['nombre'], 'ubicacion': row['ubicacion']} for _, row in aires_df.iterrows()}
+
     for _, row in umbrales_df.iterrows():
         umbral = {
             'id': int(row['id']),
@@ -493,12 +501,22 @@ def get_umbrales():
             'notificar_activo': bool(row['notificar_activo'])
         }
         
+        # Añadir info del aire si es específico y existe
         if not row['es_global']:
-            umbral['aire_id'] = int(row['aire_id'])
-        
+            aire_id_int = int(row['aire_id'])
+            umbral['aire_id'] = aire_id_int
+            if aire_id_int in aires_dict:
+                umbral['aire_nombre'] = aires_dict[aire_id_int]['nombre']
+                umbral['ubicacion'] = aires_dict[aire_id_int]['ubicacion']
+            else:
+                 umbral['aire_nombre'] = 'Desconocido (ID no encontrado)'
+                 umbral['ubicacion'] = 'Desconocida'
+
         umbrales.append(umbral)
     
-    return jsonify(umbrales)
+    # Devolver la lista dentro de la clave 'data'
+    return jsonify({'success': True, 'data': umbrales})
+
 
 @app.route('/api/umbrales', methods=['POST'])
 @jwt_required()
