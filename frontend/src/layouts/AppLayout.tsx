@@ -3,7 +3,9 @@ import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { Container, Nav, Navbar, Button, Dropdown } from 'react-bootstrap';
 import { useAppContext } from '../context/AppContext';
 import { FiMenu, FiUser, FiLogOut, FiSettings, FiHome, FiWind, FiList, FiBarChart2, FiTool, FiAlertCircle, FiUsers } from 'react-icons/fi';
-import madDataIcon from '../img/mad_data.png'; // Importa la imagen
+import madDataIcon from '../img/mad_data.png';
+import logo from '../img/CDHLogo.png' 
+import "../styles/app.css"
 
 const AppLayout: React.FC = () => {
   const { user, logout } = useAppContext();
@@ -93,6 +95,7 @@ const AppLayout: React.FC = () => {
         {/* Top Navbar */}
         <Navbar bg="light" expand="lg" className="mb-4 shadow-sm">
           <Container fluid>
+          <img className="navLogo" src={logo}></img>
             <Navbar.Brand>Sistema de Monitoreo AC DCCE</Navbar.Brand>
             <Navbar.Toggle aria-controls="basic-navbar-nav" />
             <Navbar.Collapse id="basic-navbar-nav" className="justify-content-end">
