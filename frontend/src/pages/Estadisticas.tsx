@@ -13,7 +13,7 @@ import {
   Legend,
   ChartOptions
 } from 'chart.js';
-import axios from 'axios';
+import api from '../services/api';
 import { 
   FiBarChart2, FiThermometer, FiDroplet, FiMapPin, FiClock, FiWind
 } from 'react-icons/fi';
@@ -102,22 +102,23 @@ const Estadisticas: React.FC = () => {
         setError(null);
         
         // Cargar aires
-        const responseAires = await axios.get('/aires');
-        setAires(responseAires.data);
+        const responseAires = await api.get('/aires');
+        const airesData = responseAires.data?.data || [];
+        setAires(airesData);
         
         // Extraer ubicaciones únicas
         const ubicacionesUnicas = Array.from(
-          new Set(responseAires.data.map((aire: AireAcondicionado) => aire.ubicacion))
+          new Set(airesData.map((aire: AireAcondicionado) => aire.ubicacion))
         );
         setUbicaciones(ubicacionesUnicas as string[]);
         
         // Cargar estadísticas generales
-        const responseEstadisticas = await axios.get('/estadisticas/general');
-        setEstadisticasGenerales(responseEstadisticas.data);
+        const responseEstadisticas = await api.get('/estadisticas/general');
+        setEstadisticasGenerales(responseEstadisticas.data?.data || null);
         
         // Obtener estadísticas por ubicación
-        const responseUbicaciones = await axios.get('/estadisticas/ubicacion');
-        setEstadisticasUbicacion(responseUbicaciones.data);
+        const responseUbicaciones = await api.get('/estadisticas/ubicacion');
+        setEstadisticasUbicacion(responseUbicaciones.data?.data || []);
         
         // Generar datos para gráficos
         // En un caso real, obtendríamos estos datos de la API
@@ -146,17 +147,20 @@ const Estadisticas: React.FC = () => {
         setLoading(true);
         setError(null);
         
-        const response = await axios.get(`/estadisticas/aire/${aireSeleccionado}`);
+        const response = await api.get(`/estadisticas/aire/${aireSeleccionado}`);
+        const statsData = response.data?.data || {};
         
         // Añadir información del aire
         const aire = aires.find(a => a.id === aireSeleccionado);
         if (aire) {
           setEstadisticasAire({
-            ...response.data,
+            ...statsData,
             aire_id: aire.id,
             nombre: aire.nombre,
             ubicacion: aire.ubicacion
           });
+        } else {
+          setEstadisticasAire(null);
         }
       } catch (error) {
         console.error('Error al cargar estadísticas del aire:', error);
