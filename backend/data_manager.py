@@ -168,7 +168,12 @@ class DataManager:
             session.rollback() # MUY IMPORTANTE: Deshacer cambios en la sesión si hubo error
             return None 
         
-    def actualizar_aire(self, aire_id, nombre, ubicacion, fecha_instalacion):
+    def actualizar_aire(self, aire_id, nombre, ubicacion, fecha_instalacion, tipo, toneladas,
+                         evaporadora_operativa, evaporadora_marca, evaporadora_modelo,
+                         evaporadora_serial, evaporadora_codigo_inventario,
+                         evaporadora_ubicacion_instalacion, condensadora_operativa,
+                         condensadora_marca, condensadora_modelo, condensadora_serial,
+                         condensadora_codigo_inventario, condensadora_ubicacion_instalacion):
         """
         Actualiza la información de un aire acondicionado.
         
@@ -184,14 +189,53 @@ class DataManager:
         aire = session.query(AireAcondicionado).filter(AireAcondicionado.id == aire_id).first()
         
         if aire:
-            aire.nombre = nombre
-            aire.ubicacion = ubicacion
-            aire.fecha_instalacion = fecha_instalacion
-            
-            session.commit()
-            return True
+            try:
+                aire.nombre = nombre
+                aire.ubicacion = ubicacion
+                # from datetime import datetime
+                    # if isinstance(fecha_instalacion, str):
+                    #     try:
+                    #         aire.fecha_instalacion = datetime.strptime(fecha_instalacion, '%Y-%m-%d').date()
+                    #     except ValueError:
+                    #         print(f"Error: Formato de fecha inválido '{fecha_instalacion}' para aire ID {aire_id}")
+                    #         # Decide cómo manejar el error, ¿quizás no actualizar la fecha?
+                    #         # O devolver False / lanzar una excepción
+                    # else:
+                    #     aire.fecha_instalacion = fecha_instalacion # Asume que ya es Date o None
+                aire.fecha_instalacion = fecha_instalacion
+                aire.tipo = tipo
+                # Convierte toneladas a float o None si está vacío/cero
+                aire.toneladas = float(toneladas) if toneladas else None
+
+                    # Evaporadora
+                aire.evaporadora_operativa = bool(evaporadora_operativa)
+                aire.evaporadora_marca = evaporadora_marca
+                aire.evaporadora_modelo = evaporadora_modelo
+                aire.evaporadora_serial = evaporadora_serial
+                aire.evaporadora_codigo_inventario = evaporadora_codigo_inventario
+                aire.evaporadora_ubicacion_instalacion = evaporadora_ubicacion_instalacion
+
+                        # Condensadora
+                aire.condensadora_operativa = bool(condensadora_operativa)
+                aire.condensadora_marca = condensadora_marca
+                aire.condensadora_modelo = condensadora_modelo
+                aire.condensadora_serial = condensadora_serial
+                aire.condensadora_codigo_inventario = condensadora_codigo_inventario
+                aire.condensadora_ubicacion_instalacion = condensadora_ubicacion_instalacion
+
+
+                session.commit()
+                return True
         
-        return False
+            except Exception as e:
+                print(f"!!! ERROR al actualizar aire ID {aire_id} en data_manager: {e}", file=sys.stderr)
+                traceback.print_exc()
+                session.rollback() # Deshacer cambios si hubo error en el commit
+                return False
+        else:
+            # El aire con ese ID no fue encontrado
+            print(f"Advertencia: Intento de actualizar aire no existente con ID {aire_id}")
+            return False
     
     def agregar_lectura(self, aire_id, fecha, temperatura, humedad):
         try:

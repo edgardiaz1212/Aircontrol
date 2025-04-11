@@ -27,14 +27,14 @@ interface AireAcondicionado {
   
   
   interface AiresAddEditModalProps {
-      show: boolean; // <-- Asegúrate que esté aquí
-      onHide: () => void; // <-- Asegúrate que esté aquí
-      modalTitle: string; // <-- Asegúrate que esté aquí
-      formData: Partial<AireAcondicionado>; // <-- Asegúrate que esté aquí
-      formMode: 'add' | 'edit'; // <-- Asegúrate que esté aquí
-      loadingEditDetails: boolean; // <-- Asegúrate que esté aquí
-      editError: string | null; // <-- Asegúrate que esté aquí
-      onSubmit: (e: React.FormEvent) => void; // <-- Asegúrate que esté aquí (o Promise<void>)
+      show: boolean; 
+      onHide: () => void; 
+      modalTitle: string; 
+      formData: Partial<AireAcondicionado>; 
+      formMode: 'add' | 'edit'; 
+      loadingEditDetails: boolean; 
+      editError: string | null; 
+      onSubmit: (e: React.FormEvent) => void; 
       onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => void; // Esta ya estaba
   }
 

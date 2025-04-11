@@ -196,7 +196,6 @@ const Aires: React.FC = () => {
          // Asegúrate que los booleanos se manejen correctamente
         evaporadora_operativa: !!fullDetails.evaporadora_operativa,
         condensadora_operativa: !!fullDetails.condensadora_operativa,
-        // Las propiedades 'fecha_ultimo_mantenimiento' y 'capacidad_btu' ya no se incluyen aquí
       });
     } catch (error: any) {
       console.error(`Error al cargar detalles completos para editar aire ${aireListItem.id}:`, error);
@@ -232,14 +231,11 @@ const Aires: React.FC = () => {
     // Validación básica
     if (!formData.nombre || !formData.ubicacion || !formData.fecha_instalacion) {
         setEditError("Nombre, Ubicación y Fecha de Instalación son requeridos.");
+        console.log("Validation failed: Missing required fields");
         return;
     }
-    // Añade validación para 'tipo' si es requerido por el backend
-    if (!formData.tipo) {
-        setEditError("El campo 'Tipo' es requerido.");
-        return;
-    }
-
+    
+    console.log("Validation passed.")
     // Prepara el payload que coincide con lo esperado por el backend (app.py)
     const payload: Partial<AireAcondicionado> = {
         ...formData,
