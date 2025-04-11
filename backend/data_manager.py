@@ -85,7 +85,22 @@ class DataManager:
                 'id': aire.id,
                 'nombre': aire.nombre,
                 'ubicacion': aire.ubicacion,
-                'fecha_instalacion': aire.fecha_instalacion
+                'fecha_instalacion': aire.fecha_instalacion,
+                'tipo': aire.tipo, 
+                'toneladas': aire.toneladas,
+                'evaporadora_operativa': aire.evaporadora_operativa,
+                'evaporadora_marca': aire.evaporadora_marca,
+                'evaporadora_modelo': aire.evaporadora_modelo,
+                'evaporadora_serial': aire.evaporadora_serial,
+                'evaporadora_codigo_inventario': aire.evaporadora_codigo_inventario,
+                'evaporadora_ubicacion_instalacion': aire.evaporadora_ubicacion_instalacion,
+                'condensadora_operativa': aire.condensadora_operativa,
+                'condensadora_marca': aire.condensadora_marca,
+                'condensadora_modelo': aire.condensadora_modelo,
+                'condensadora_serial': aire.condensadora_serial,
+                'condensadora_codigo_inventario': aire.condensadora_codigo_inventario,
+                'condensadora_ubicacion_instalacion': aire.condensadora_ubicacion_instalacion,
+                
             }
             for aire in aires
         ]

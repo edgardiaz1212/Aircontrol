@@ -251,7 +251,23 @@ def get_aires():
             'id': int(row['id']),
             'nombre': row['nombre'],
             'ubicacion': row['ubicacion'],
-            'fecha_instalacion': row['fecha_instalacion']
+            'fecha_instalacion': row['fecha_instalacion'],
+            'tipo': row['tipo'],
+            'toneladas': float(row['toneladas']) if row['toneladas'] else None,
+            'evaporadora_operativa': bool(row['evaporadora_operativa']),
+            'evaporadora_marca': row['evaporadora_marca'],
+            'evaporadora_modelo': row['evaporadora_modelo'],
+            'evaporadora_serial': row['evaporadora_serial'],
+            'evaporadora_codigo_inventario': row['evaporadora_codigo_inventario'],
+            'evaporadora_ubicacion_instalacion': row['evaporadora_ubicacion_instalacion'],
+            'condensadora_operativa': bool(row['condensadora_operativa']),
+            'condensadora_marca': row['condensadora_marca'],
+            'condensadora_modelo': row['condensadora_modelo'],
+            'condensadora_serial': row['condensadora_serial'],
+            'condensadora_codigo_inventario': row['condensadora_codigo_inventario'],
+            'condensadora_ubicacion_instalacion': row['condensadora_ubicacion_instalacion'],
+
+
         })
     
     return jsonify(aires)
@@ -270,6 +286,8 @@ def add_aire():
     
     if not (nombre and ubicacion and fecha_instalacion):
         return jsonify({'success': False, 'mensaje': 'Todos los campos son requeridos'})
+    
+    
     
     aire_id = data_manager.agregar_aire(nombre, ubicacion, fecha_instalacion)
     
