@@ -1,248 +1,332 @@
-import React, { useState, useEffect } from 'react';
-import { Card, Table, Button, Modal, Form, Row, Col, Spinner, Alert } from 'react-bootstrap';
-import { FiPlus, FiEdit, FiTrash2, FiWind } from 'react-icons/fi';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Card, Button, Alert } from 'react-bootstrap'; // Simplified imports
+import { FiPlus } from 'react-icons/fi';
 import api from '../services/api';
 import { useAppContext } from '../context/AppContext';
 
+// Importar los nuevos componentes
+import AiresTable from '../components/Aires/AiresTable';
+import AiresAddEditModal from '../components/Aires/AiresAddEditModal';
+import AiresViewModal from '../components/Aires/AiresViewModal';
+
+// --- Interfaces (pueden moverse a un archivo types.ts) ---
 interface AireAcondicionado {
   id: number;
   nombre: string;
   ubicacion: string;
   fecha_instalacion: string;
+  marca?: string;
+  modelo?: string;
+  numero_serie?: string;
+  capacidad_btu?: number | null;
+  tipo_refrigerante?: string;
+  eficiencia_energetica?: string;
+  fecha_ultimo_mantenimiento?: string | null;
+  estado?: string;
 }
 
+interface AireAcondicionadoListItem {
+    id: number;
+    nombre: string;
+    ubicacion: string;
+    fecha_instalacion: string;
+}
+
+// --- Componente Contenedor Principal ---
 const Aires: React.FC = () => {
   const { user } = useAppContext();
-  const [aires, setAires] = useState<AireAcondicionado[]>([]);
+  const [airesList, setAiresList] = useState<AireAcondicionadoListItem[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
-  const [showModal, setShowModal] = useState<boolean>(false);
+
+  // State for the Edit/Add Modal
+  const [showEditModal, setShowEditModal] = useState<boolean>(false);
   const [modalTitle, setModalTitle] = useState<string>('');
-  const [formData, setFormData] = useState<Partial<AireAcondicionado>>({
-    nombre: '',
-    ubicacion: '',
-    fecha_instalacion: ''
-  });
+  const [formData, setFormData] = useState<Partial<AireAcondicionado>>({});
   const [formMode, setFormMode] = useState<'add' | 'edit'>('add');
+  const [loadingEditDetails, setLoadingEditDetails] = useState<boolean>(false);
+  const [editError, setEditError] = useState<string | null>(null);
 
-  // Verificar si el usuario puede agregar/editar
-  const canEdit = user?.rol === 'admin' || user?.rol === 'supervisor';
+  // State for the View Details Modal
+  const [showViewModal, setShowViewModal] = useState<boolean>(false);
+  const [selectedAireDetails, setSelectedAireDetails] = useState<AireAcondicionado | null>(null);
+  const [loadingDetails, setLoadingDetails] = useState<boolean>(false);
+  const [viewError, setViewError] = useState<string | null>(null);
 
-  // Cargar aires acondicionados
-  useEffect(() => {
-    const fetchAires = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-        const response = await api.get('/aires');
-        setAires(response.data);
-      } catch (error) {
-        console.error('Error al cargar aires:', error);
-        setError('Error al cargar los aires acondicionados');
-      } finally {
-        setLoading(false);
+  const canManage = user?.rol === 'admin' || user?.rol === 'supervisor';
+
+  // --- Helper para formatear fechas ---
+  const formatDate = useCallback((dateString: string | null | undefined, forInput: boolean = false): string => {
+    if (!dateString) return '';
+    try {
+      let date = new Date(dateString);
+      if (isNaN(date.getTime())) {
+          const dateWithTime = new Date(dateString + 'T00:00:00');
+          if (isNaN(dateWithTime.getTime())) {
+              return forInput ? '' : 'Fecha inválida';
+          }
+          date = dateWithTime;
       }
-    };
-
-    fetchAires();
+      if (forInput) {
+        const year = date.getFullYear();
+        const month = (date.getMonth() + 1).toString().padStart(2, '0');
+        const day = date.getDate().toString().padStart(2, '0');
+        return `${year}-${month}-${day}`;
+      } else {
+        return date.toLocaleDateString('es-ES', { year: 'numeric', month: '2-digit', day: '2-digit' });
+      }
+    } catch (e) {
+      console.error("Error formatting date:", dateString, e);
+      return forInput ? '' : 'Error fecha';
+    }
   }, []);
 
-  // Manejar cambios en el formulario
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setFormData({
-      ...formData,
-      [name]: value
-    });
-  };
+  // --- Cargar lista de aires acondicionados ---
+  const fetchAiresList = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const response = await api.get('/aires');
+      const data = response.data?.data || response.data || [];
+      if (Array.isArray(data)) {
+          setAiresList(data as AireAcondicionadoListItem[]);
+      } else {
+          console.error("Unexpected response format for /aires:", response.data);
+          setAiresList([]);
+          setError("Formato de respuesta inesperado del servidor al listar aires.");
+      }
+    } catch (error: any) {
+      console.error('Error al cargar lista de aires:', error);
+      setError(error.response?.data?.mensaje || 'Error al cargar los aires acondicionados');
+      setAiresList([]);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
-  // Abrir modal para agregar
-  const handleAdd = () => {
+  useEffect(() => {
+    fetchAiresList();
+  }, [fetchAiresList]);
+
+  // --- Manejar cambios en el formulario de Edición/Creación ---
+  const handleChange = useCallback((e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+    const { name, value, type } = e.target;
+    setFormData(prevData => ({
+      ...prevData,
+      [name]: type === 'number' ? (value === '' ? null : parseFloat(value)) : value
+    }));
+  }, []); // useCallback para estabilidad
+
+  // --- Abrir modal para Agregar ---
+  const handleAdd = useCallback(() => {
     setFormData({
       nombre: '',
       ubicacion: '',
-      fecha_instalacion: new Date().toISOString().split('T')[0]
+      fecha_instalacion: formatDate(new Date().toISOString(), true),
+      marca: '',
+      modelo: '',
+      numero_serie: '',
+      capacidad_btu: null,
+      tipo_refrigerante: '',
+      eficiencia_energetica: '',
+      estado: 'Activo',
+      fecha_ultimo_mantenimiento: null
     });
     setModalTitle('Agregar Aire Acondicionado');
     setFormMode('add');
-    setShowModal(true);
-  };
+    setEditError(null);
+    setShowEditModal(true);
+    setShowViewModal(false);
+  }, [formatDate]); // Dependencia de formatDate
 
-  // Abrir modal para editar
-  const handleEdit = (aire: AireAcondicionado) => {
-    setFormData(aire);
-    setModalTitle('Editar Aire Acondicionado');
+  // --- Abrir modal para Editar (y cargar detalles) ---
+  const handleEdit = useCallback(async (aireListItem: AireAcondicionadoListItem) => {
     setFormMode('edit');
-    setShowModal(true);
-  };
+    setModalTitle('Editar Aire Acondicionado');
+    setEditError(null);
+    setShowViewModal(false);
 
-  // Eliminar aire
-  const handleDelete = async (id: number) => {
-    if (window.confirm('¿Está seguro de eliminar este aire acondicionado?')) {
+    setFormData({
+        id: aireListItem.id,
+        nombre: aireListItem.nombre,
+        ubicacion: aireListItem.ubicacion,
+        fecha_instalacion: formatDate(aireListItem.fecha_instalacion, true),
+    });
+    setLoadingEditDetails(true);
+    setShowEditModal(true);
+
+    try {
+      const response = await api.get<AireAcondicionado>(`/aires/${aireListItem.id}`);
+      const fullDetails = response.data;
+      setFormData({
+        ...fullDetails,
+        fecha_instalacion: formatDate(fullDetails.fecha_instalacion, true),
+        fecha_ultimo_mantenimiento: formatDate(fullDetails.fecha_ultimo_mantenimiento, true),
+        capacidad_btu: fullDetails.capacidad_btu ?? null,
+      });
+    } catch (error: any) {
+      console.error(`Error al cargar detalles completos para editar aire ${aireListItem.id}:`, error);
+      setEditError(error.response?.data?.mensaje || `Error al cargar detalles para editar.`);
+    } finally {
+      setLoadingEditDetails(false);
+    }
+  }, [formatDate]); // Dependencia de formatDate
+
+  // --- Eliminar aire ---
+  const handleDelete = useCallback(async (id: number) => {
+    if (window.confirm('¿Está seguro de eliminar este aire acondicionado? Esta acción no se puede deshacer.')) {
+      const originalList = [...airesList];
+      setAiresList(prevList => prevList.filter(aire => aire.id !== id));
+      setError(null);
+
       try {
         await api.delete(`/aires/${id}`);
-        setAires(aires.filter(aire => aire.id !== id));
-      } catch (error) {
+      } catch (error: any) {
         console.error('Error al eliminar aire:', error);
-        setError('Error al eliminar el aire acondicionado');
+        setError(error.response?.data?.mensaje || 'Error al eliminar el aire acondicionado');
+        setAiresList(originalList);
       }
     }
-  };
+  }, [airesList]); // Dependencia de airesList
 
-  // Enviar formulario
-  const handleSubmit = async (e: React.FormEvent) => {
+  // --- Enviar formulario de Edición/Creación ---
+  const handleSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
-    
+    setEditError(null);
+    setError(null);
+
+    if (!formData.nombre || !formData.ubicacion || !formData.fecha_instalacion) {
+        setEditError("Nombre, Ubicación y Fecha de Instalación son requeridos.");
+        return;
+    }
+
+    const payload: Partial<AireAcondicionado> = {
+        ...formData,
+        fecha_instalacion: formData.fecha_instalacion ? formData.fecha_instalacion.split('T')[0] : '',
+        fecha_ultimo_mantenimiento: formData.fecha_ultimo_mantenimiento ? formData.fecha_ultimo_mantenimiento.split('T')[0] : null,
+        capacidad_btu: formData.capacidad_btu ? Number(formData.capacidad_btu) : null,
+    };
+    if (formMode === 'add') {
+        delete payload.id;
+    }
+
     try {
+      let updatedAire: AireAcondicionado | null = null;
+
       if (formMode === 'add') {
-        const response = await api.post('/aires', formData);
-        const nuevoAire = { ...formData, id: response.data.id } as AireAcondicionado;
-        setAires([...aires, nuevoAire]);
-      } else {
-        await api.put(`/aires/${formData.id}`, formData);
-        setAires(aires.map(aire => 
-          aire.id === formData.id ? { ...aire, ...formData } as AireAcondicionado : aire
+        const response = await api.post('/aires', payload);
+        updatedAire = response.data?.data || response.data;
+        if (updatedAire && updatedAire.id) {
+             setAiresList(prevList => [...prevList, {
+                id: updatedAire!.id,
+                nombre: updatedAire!.nombre,
+                ubicacion: updatedAire!.ubicacion,
+                fecha_instalacion: updatedAire!.fecha_instalacion
+             }]);
+        } else {
+             console.warn("No se recibió el nuevo aire creado desde el backend. Refrescando lista...");
+             fetchAiresList();
+        }
+
+      } else if (formMode === 'edit' && formData.id) {
+        const response = await api.put(`/aires/${formData.id}`, payload);
+        updatedAire = response.data?.data || response.data;
+        setAiresList(prevList => prevList.map(aire =>
+          aire.id === formData.id
+            ? {
+                ...aire,
+                nombre: updatedAire?.nombre ?? formData.nombre ?? aire.nombre,
+                ubicacion: updatedAire?.ubicacion ?? formData.ubicacion ?? aire.ubicacion,
+                fecha_instalacion: updatedAire?.fecha_instalacion ?? formData.fecha_instalacion ?? aire.fecha_instalacion,
+              }
+            : aire
         ));
       }
-      
-      setShowModal(false);
-    } catch (error) {
+
+      setShowEditModal(false);
+    } catch (error: any) {
       console.error('Error al guardar:', error);
-      setError('Error al guardar el aire acondicionado');
+      const message = error.response?.data?.mensaje || 'Error al guardar el aire acondicionado';
+      setEditError(message);
     }
-  };
+  }, [formData, formMode, fetchAiresList]); // Dependencias
+
+  // --- Abrir modal de Detalles (al hacer clic en la fila) ---
+  const handleRowClick = useCallback(async (id: number) => {
+    setShowViewModal(true);
+    setLoadingDetails(true);
+    setViewError(null);
+    setSelectedAireDetails(null);
+
+    try {
+      const response = await api.get<AireAcondicionado>(`/aires/${id}`);
+      setSelectedAireDetails(response.data);
+    } catch (error: any) {
+      console.error(`Error al cargar detalles del aire ${id}:`, error);
+      setViewError(error.response?.data?.mensaje || `Error al cargar detalles del aire acondicionado ${id}`);
+    } finally {
+      setLoadingDetails(false);
+    }
+  }, []); // Sin dependencias
 
   return (
     <div>
-      <div className="d-flex justify-content-between align-items-center mb-4">
+      {/* Header */}
+      <div className="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
         <h1>Aires Acondicionados</h1>
-        {canEdit && (
+        {canManage && (
           <Button variant="primary" onClick={handleAdd}>
-            <FiPlus className="me-2" /> Agregar
+            <FiPlus className="me-2" /> Agregar Aire
           </Button>
         )}
       </div>
-      
+
+      {/* General Error Alert */}
       {error && (
         <Alert variant="danger" dismissible onClose={() => setError(null)}>
           {error}
         </Alert>
       )}
-      
+
+      {/* Main Card */}
       <Card className="dashboard-card">
         <Card.Body>
-          {loading ? (
-            <div className="text-center p-5">
-              <Spinner animation="border" variant="primary" />
-              <p className="mt-3">Cargando aires acondicionados...</p>
-            </div>
-          ) : aires.length === 0 ? (
-            <div className="text-center p-5">
-              <FiWind size={50} className="text-muted mb-3" />
-              <h4>No hay aires acondicionados registrados</h4>
-              {canEdit && (
-                <Button variant="primary" className="mt-3" onClick={handleAdd}>
-                  <FiPlus className="me-2" /> Agregar aire acondicionado
-                </Button>
-              )}
-            </div>
-          ) : (
-            <div className="table-responsive">
-              <Table hover>
-                <thead>
-                  <tr>
-                    <th>ID</th>
-                    <th>Nombre</th>
-                    <th>Ubicación</th>
-                    <th>Fecha de Instalación</th>
-                    {canEdit && <th className="text-end">Acciones</th>}
-                  </tr>
-                </thead>
-                <tbody>
-                  {aires.map(aire => (
-                    <tr key={aire.id}>
-                      <td>{aire.id}</td>
-                      <td>{aire.nombre}</td>
-                      <td>{aire.ubicacion}</td>
-                      <td>{aire.fecha_instalacion}</td>
-                      {canEdit && (
-                        <td className="text-end">
-                          <Button 
-                            variant="outline-primary" 
-                            size="sm" 
-                            className="me-2"
-                            onClick={() => handleEdit(aire)}
-                          >
-                            <FiEdit />
-                          </Button>
-                          <Button 
-                            variant="outline-danger" 
-                            size="sm"
-                            onClick={() => handleDelete(aire.id)}
-                          >
-                            <FiTrash2 />
-                          </Button>
-                        </td>
-                      )}
-                    </tr>
-                  ))}
-                </tbody>
-              </Table>
-            </div>
-          )}
+          {/* Usar el componente de tabla */}
+          <AiresTable
+            airesList={airesList}
+            loading={loading}
+            error={error} // Pasar el error general
+            canManage={canManage}
+            onRowClick={handleRowClick}
+            onEdit={handleEdit}
+            onDelete={handleDelete}
+            onAdd={handleAdd} // Pasar handleAdd para el botón de estado vacío
+            formatDate={formatDate}
+          />
         </Card.Body>
       </Card>
-      
-      {/* Modal de formulario */}
-      <Modal show={showModal} onHide={() => setShowModal(false)}>
-        <Modal.Header closeButton>
-          <Modal.Title>{modalTitle}</Modal.Title>
-        </Modal.Header>
-        <Form onSubmit={handleSubmit}>
-          <Modal.Body>
-            <Form.Group className="mb-3">
-              <Form.Label>Nombre</Form.Label>
-              <Form.Control
-                type="text"
-                name="nombre"
-                value={formData.nombre || ''}
-                onChange={handleChange}
-                required
-              />
-            </Form.Group>
-            
-            <Form.Group className="mb-3">
-              <Form.Label>Ubicación</Form.Label>
-              <Form.Control
-                type="text"
-                name="ubicacion"
-                value={formData.ubicacion || ''}
-                onChange={handleChange}
-                required
-              />
-            </Form.Group>
-            
-            <Form.Group className="mb-3">
-              <Form.Label>Fecha de Instalación</Form.Label>
-              <Form.Control
-                type="date"
-                name="fecha_instalacion"
-                value={formData.fecha_instalacion || ''}
-                onChange={handleChange}
-                required
-              />
-            </Form.Group>
-          </Modal.Body>
-          <Modal.Footer>
-            <Button variant="secondary" onClick={() => setShowModal(false)}>
-              Cancelar
-            </Button>
-            <Button variant="primary" type="submit">
-              Guardar
-            </Button>
-          </Modal.Footer>
-        </Form>
-      </Modal>
+
+      {/* --- Modales (usando los componentes) --- */}
+      <AiresAddEditModal
+        show={showEditModal}
+        onHide={() => setShowEditModal(false)}
+        modalTitle={modalTitle}
+        formData={formData}
+        formMode={formMode}
+        loadingEditDetails={loadingEditDetails}
+        editError={editError}
+        onSubmit={handleSubmit}
+        onChange={handleChange}
+      />
+
+      <AiresViewModal
+        show={showViewModal}
+        onHide={() => setShowViewModal(false)}
+        selectedAireDetails={selectedAireDetails}
+        loadingDetails={loadingDetails}
+        viewError={viewError}
+        formatDate={formatDate}
+      />
     </div>
   );
 };
