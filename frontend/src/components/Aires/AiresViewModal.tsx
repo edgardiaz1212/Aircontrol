@@ -1,21 +1,29 @@
 import React from 'react';
-import { Modal, Button, Spinner, Alert, ListGroup } from 'react-bootstrap';
-import { FiWind, FiMapPin, FiCalendar, FiTag, FiSettings, FiThermometer, FiDroplet, FiZap, FiTool, FiActivity, FiInfo } from 'react-icons/fi';
+import { Modal, Button, Spinner, Alert, ListGroup, Badge } from 'react-bootstrap'; // Añadir Badge
+import { FiWind, FiMapPin, FiCalendar, FiTag, FiSettings, FiThermometer, FiPackage, FiZap, FiInfo, FiCheckCircle, FiXCircle } from 'react-icons/fi'; // Ajustar iconos
 
-// Reutilizamos la interfaz completa
+// --- Interfaz actualizada (debe coincidir con la de Aires.tsx) ---
 interface AireAcondicionado {
-    id: number;
-    nombre: string;
-    ubicacion: string;
-    fecha_instalacion: string;
-    marca?: string;
-    modelo?: string;
-    numero_serie?: string;
-    capacidad_btu?: number | null;
-    tipo_refrigerante?: string;
-    eficiencia_energetica?: string;
-    fecha_ultimo_mantenimiento?: string | null;
-    estado?: string;
+  id: number;
+  nombre: string;
+  ubicacion: string;
+  fecha_instalacion: string;
+  tipo?: string;
+  toneladas?: number | null;
+  // Evaporadora
+  evaporadora_operativa?: boolean;
+  evaporadora_marca?: string;
+  evaporadora_modelo?: string;
+  evaporadora_serial?: string;
+  evaporadora_codigo_inventario?: string;
+  evaporadora_ubicacion_instalacion?: string;
+  // Condensadora
+  condensadora_operativa?: boolean;
+  condensadora_marca?: string;
+  condensadora_modelo?: string;
+  condensadora_serial?: string;
+  condensadora_codigo_inventario?: string;
+  condensadora_ubicacion_instalacion?: string;
 }
 
 interface AiresViewModalProps {
@@ -36,13 +44,15 @@ const AiresViewModal: React.FC<AiresViewModalProps> = ({
     formatDate
 }) => {
 
-    const getEstadoColor = (estado?: string): string => {
-        switch (estado?.toLowerCase()) {
-            case 'activo': return 'success';
-            case 'inactivo': return 'secondary';
-            case 'mantenimiento': return 'warning';
-            default: return 'dark';
+    // Helper para mostrar booleanos de forma legible
+    const renderBoolean = (value: boolean | undefined | null) => {
+        if (value === true) {
+            return <Badge bg="success"><FiCheckCircle className="me-1" /> Sí</Badge>;
         }
+        if (value === false) {
+            return <Badge bg="danger"><FiXCircle className="me-1" /> No</Badge>;
+        }
+        return <Badge bg="secondary">N/A</Badge>;
     };
 
     return (
@@ -62,54 +72,100 @@ const AiresViewModal: React.FC<AiresViewModalProps> = ({
                     <Alert variant="danger">{viewError}</Alert>
                 ) : selectedAireDetails ? (
                     <ListGroup variant="flush">
+                        {/* Información General */}
+                        <ListGroup.Item className="bg-light fw-bold">Información General</ListGroup.Item>
                         <ListGroup.Item>
                             <FiWind className="me-2 text-primary" /> <strong>Nombre:</strong> {selectedAireDetails.nombre}
                         </ListGroup.Item>
                         <ListGroup.Item>
-                            <FiMapPin className="me-2 text-success" /> <strong>Ubicación:</strong> {selectedAireDetails.ubicacion}
+                            <FiMapPin className="me-2 text-success" /> <strong>Ubicación General:</strong> {selectedAireDetails.ubicacion}
                         </ListGroup.Item>
                         <ListGroup.Item>
                             <FiCalendar className="me-2 text-info" /> <strong>Fecha Instalación:</strong> {formatDate(selectedAireDetails.fecha_instalacion)}
                         </ListGroup.Item>
-                        {selectedAireDetails.marca && (
+                        {selectedAireDetails.tipo && (
                             <ListGroup.Item>
-                                <FiTag className="me-2 text-secondary" /> <strong>Marca:</strong> {selectedAireDetails.marca}
+                                <FiTag className="me-2 text-secondary" /> <strong>Tipo:</strong> {selectedAireDetails.tipo}
                             </ListGroup.Item>
                         )}
-                        {selectedAireDetails.modelo && (
+                        {selectedAireDetails.toneladas != null && ( // Usar toneladas en lugar de capacidad_btu
                             <ListGroup.Item>
-                                <FiSettings className="me-2 text-secondary" /> <strong>Modelo:</strong> {selectedAireDetails.modelo}
+                                <FiThermometer className="me-2 text-danger" /> <strong>Capacidad:</strong> {selectedAireDetails.toneladas} Toneladas
                             </ListGroup.Item>
                         )}
-                        {selectedAireDetails.numero_serie && (
-                            <ListGroup.Item>
-                                <FiTag className="me-2 text-muted" /> <strong>Número de Serie:</strong> {selectedAireDetails.numero_serie}
-                            </ListGroup.Item>
-                        )}
-                        {selectedAireDetails.capacidad_btu != null && (
-                            <ListGroup.Item>
-                                <FiThermometer className="me-2 text-danger" /> <strong>Capacidad:</strong> {selectedAireDetails.capacidad_btu} BTU
-                            </ListGroup.Item>
-                        )}
-                        {selectedAireDetails.tipo_refrigerante && (
-                            <ListGroup.Item>
-                                <FiDroplet className="me-2 text-info" /> <strong>Refrigerante:</strong> {selectedAireDetails.tipo_refrigerante}
-                            </ListGroup.Item>
-                        )}
-                        {selectedAireDetails.eficiencia_energetica && (
-                            <ListGroup.Item>
-                                <FiZap className="me-2 text-warning" /> <strong>Eficiencia Energética:</strong> {selectedAireDetails.eficiencia_energetica}
-                            </ListGroup.Item>
-                        )}
+
+                        {/* Unidad Evaporadora */}
+                        <ListGroup.Item className="bg-light fw-bold mt-3">Unidad Evaporadora</ListGroup.Item>
                         <ListGroup.Item>
-                            <FiTool className="me-2 text-dark" /> <strong>Último Mantenimiento:</strong> {formatDate(selectedAireDetails.fecha_ultimo_mantenimiento) || 'N/A'}
+                             <strong>Operativa:</strong> {renderBoolean(selectedAireDetails.evaporadora_operativa)}
                         </ListGroup.Item>
-                        {selectedAireDetails.estado && (
+                        {selectedAireDetails.evaporadora_marca && (
                             <ListGroup.Item>
-                                <FiActivity className="me-2" />
-                                <strong>Estado:</strong> <span className={`fw-bold text-${getEstadoColor(selectedAireDetails.estado)}`}>{selectedAireDetails.estado}</span>
+                                <FiTag className="me-2 text-secondary" /> <strong>Marca:</strong> {selectedAireDetails.evaporadora_marca}
                             </ListGroup.Item>
                         )}
+                        {selectedAireDetails.evaporadora_modelo && (
+                            <ListGroup.Item>
+                                <FiSettings className="me-2 text-secondary" /> <strong>Modelo:</strong> {selectedAireDetails.evaporadora_modelo}
+                            </ListGroup.Item>
+                        )}
+                        {selectedAireDetails.evaporadora_serial && (
+                            <ListGroup.Item>
+                                <FiTag className="me-2 text-muted" /> <strong>Serial:</strong> {selectedAireDetails.evaporadora_serial}
+                            </ListGroup.Item>
+                        )}
+                         {selectedAireDetails.evaporadora_codigo_inventario && (
+                            <ListGroup.Item>
+                                <FiTag className="me-2 text-muted" /> <strong>Cód. Inventario:</strong> {selectedAireDetails.evaporadora_codigo_inventario}
+                            </ListGroup.Item>
+                        )}
+                         {selectedAireDetails.evaporadora_ubicacion_instalacion && (
+                            <ListGroup.Item>
+                                <FiMapPin className="me-2 text-muted" /> <strong>Ubicación Específica:</strong> {selectedAireDetails.evaporadora_ubicacion_instalacion}
+                            </ListGroup.Item>
+                        )}
+
+                        {/* Unidad Condensadora */}
+                        <ListGroup.Item className="bg-light fw-bold mt-3">Unidad Condensadora</ListGroup.Item>
+                         <ListGroup.Item>
+                             <strong>Operativa:</strong> {renderBoolean(selectedAireDetails.condensadora_operativa)}
+                        </ListGroup.Item>
+                        {selectedAireDetails.condensadora_marca && (
+                            <ListGroup.Item>
+                                <FiTag className="me-2 text-secondary" /> <strong>Marca:</strong> {selectedAireDetails.condensadora_marca}
+                            </ListGroup.Item>
+                        )}
+                        {selectedAireDetails.condensadora_modelo && (
+                            <ListGroup.Item>
+                                <FiSettings className="me-2 text-secondary" /> <strong>Modelo:</strong> {selectedAireDetails.condensadora_modelo}
+                            </ListGroup.Item>
+                        )}
+                        {selectedAireDetails.condensadora_serial && (
+                            <ListGroup.Item>
+                                <FiTag className="me-2 text-muted" /> <strong>Serial:</strong> {selectedAireDetails.condensadora_serial}
+                            </ListGroup.Item>
+                        )}
+                         {selectedAireDetails.condensadora_codigo_inventario && (
+                            <ListGroup.Item>
+                                <FiTag className="me-2 text-muted" /> <strong>Cód. Inventario:</strong> {selectedAireDetails.condensadora_codigo_inventario}
+                            </ListGroup.Item>
+                        )}
+                         {selectedAireDetails.condensadora_ubicacion_instalacion && (
+                            <ListGroup.Item>
+                                <FiMapPin className="me-2 text-muted" /> <strong>Ubicación Específica:</strong> {selectedAireDetails.condensadora_ubicacion_instalacion}
+                            </ListGroup.Item>
+                        )}
+
+                        {/* Campos eliminados (ya no se muestran):
+                            - marca (general)
+                            - modelo (general)
+                            - numero_serie (general)
+                            - capacidad_btu
+                            - tipo_refrigerante
+                            - eficiencia_energetica
+                            - fecha_ultimo_mantenimiento
+                            - estado
+                        */}
                     </ListGroup>
                 ) : (
                     <Alert variant="secondary">No hay detalles para mostrar.</Alert>

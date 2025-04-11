@@ -11,18 +11,26 @@ import AiresViewModal from '../components/Aires/AiresViewModal';
 
 // --- Interfaces (pueden moverse a un archivo types.ts) ---
 interface AireAcondicionado {
-  id: number;
+  id: number; // El ID lo asigna el backend, pero es útil tenerlo
   nombre: string;
   ubicacion: string;
-  fecha_instalacion: string;
-  marca?: string;
-  modelo?: string;
-  numero_serie?: string;
-  capacidad_btu?: number | null;
-  tipo_refrigerante?: string;
-  eficiencia_energetica?: string;
-  fecha_ultimo_mantenimiento?: string | null;
-  estado?: string;
+  fecha_instalacion: string; // Mantener como string YYYY-MM-DD
+  tipo?: string; // Ej: 'Split', 'Ventana', 'Central'
+  toneladas?: number | null;
+  // Evaporadora
+  evaporadora_operativa?: boolean;
+  evaporadora_marca?: string;
+  evaporadora_modelo?: string;
+  evaporadora_serial?: string;
+  evaporadora_codigo_inventario?: string;
+  evaporadora_ubicacion_instalacion?: string;
+  // Condensadora
+  condensadora_operativa?: boolean;
+  condensadora_marca?: string;
+  condensadora_modelo?: string;
+  condensadora_serial?: string;
+  condensadora_codigo_inventario?: string;
+  condensadora_ubicacion_instalacion?: string;
 }
 
 interface AireAcondicionadoListItem {
@@ -110,27 +118,48 @@ const Aires: React.FC = () => {
 
   // --- Manejar cambios en el formulario de Edición/Creación ---
   const handleChange = useCallback((e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
-    const { name, value, type } = e.target;
+    const { name, value, type, checked } = e.target as HTMLInputElement; // Asegurar tipo para acceder a 'checked'
+
     setFormData(prevData => ({
       ...prevData,
-      [name]: type === 'number' ? (value === '' ? null : parseFloat(value)) : value
+      [name]: type === 'checkbox'
+              ? checked // Para checkboxes, usa el valor 'checked' (boolean)
+              : type === 'number'
+              ? (value === '' ? null : parseFloat(value)) // Para números
+              : value // Para otros tipos (text, date, select, etc.)
     }));
   }, []); // useCallback para estabilidad
 
   // --- Abrir modal para Agregar ---
   const handleAdd = useCallback(() => {
     setFormData({
+      // Campos principales
       nombre: '',
       ubicacion: '',
-      fecha_instalacion: formatDate(new Date().toISOString(), true),
-      marca: '',
-      modelo: '',
-      numero_serie: '',
-      capacidad_btu: null,
-      tipo_refrigerante: '',
-      eficiencia_energetica: '',
-      estado: 'Activo',
-      fecha_ultimo_mantenimiento: null
+      fecha_instalacion: formatDate(new Date().toISOString(), true), // Fecha actual
+      tipo: '', // O un valor por defecto como 'Split'
+      toneladas: null, // O 0 si prefieres
+
+      // Evaporadora
+      evaporadora_operativa: true, // Valor por defecto
+      evaporadora_marca: '',
+      evaporadora_modelo: '',
+      evaporadora_serial: '',
+      evaporadora_codigo_inventario: '',
+      evaporadora_ubicacion_instalacion: '', // Podría ser igual a 'ubicacion' por defecto?
+
+      // Condensadora
+      condensadora_operativa: true, // Valor por defecto
+      condensadora_marca: '',
+      condensadora_modelo: '',
+      condensadora_serial: '',
+      condensadora_codigo_inventario: '',
+      condensadora_ubicacion_instalacion: '',
+
+      // Incluye aquí otros campos si decidiste mantenerlos y quieres darles valor inicial
+      // Ejemplo:
+      // tipo_refrigerante: 'R-410A',
+      // estado: 'Activo',
     });
     setModalTitle('Agregar Aire Acondicionado');
     setFormMode('add');
@@ -159,10 +188,15 @@ const Aires: React.FC = () => {
       const response = await api.get<AireAcondicionado>(`/aires/${aireListItem.id}`);
       const fullDetails = response.data;
       setFormData({
-        ...fullDetails,
+        ...fullDetails, // Propaga todos los detalles del backend
+        // Asegúrate que la fecha de instalación esté formateada para el input
         fecha_instalacion: formatDate(fullDetails.fecha_instalacion, true),
-        fecha_ultimo_mantenimiento: formatDate(fullDetails.fecha_ultimo_mantenimiento, true),
-        capacidad_btu: fullDetails.capacidad_btu ?? null,
+        // Asegúrate que 'toneladas' sea null si no viene, o maneja la conversión si es necesario
+        toneladas: fullDetails.toneladas ?? null,
+         // Asegúrate que los booleanos se manejen correctamente
+        evaporadora_operativa: !!fullDetails.evaporadora_operativa,
+        condensadora_operativa: !!fullDetails.condensadora_operativa,
+        // Las propiedades 'fecha_ultimo_mantenimiento' y 'capacidad_btu' ya no se incluyen aquí
       });
     } catch (error: any) {
       console.error(`Error al cargar detalles completos para editar aire ${aireListItem.id}:`, error);
@@ -195,27 +229,46 @@ const Aires: React.FC = () => {
     setEditError(null);
     setError(null);
 
+    // Validación básica
     if (!formData.nombre || !formData.ubicacion || !formData.fecha_instalacion) {
         setEditError("Nombre, Ubicación y Fecha de Instalación son requeridos.");
         return;
     }
+    // Añade validación para 'tipo' si es requerido por el backend
+    if (!formData.tipo) {
+        setEditError("El campo 'Tipo' es requerido.");
+        return;
+    }
 
+    // Prepara el payload que coincide con lo esperado por el backend (app.py)
     const payload: Partial<AireAcondicionado> = {
         ...formData,
+        // Asegura formato YYYY-MM-DD para la fecha
         fecha_instalacion: formData.fecha_instalacion ? formData.fecha_instalacion.split('T')[0] : '',
-        fecha_ultimo_mantenimiento: formData.fecha_ultimo_mantenimiento ? formData.fecha_ultimo_mantenimiento.split('T')[0] : null,
-        capacidad_btu: formData.capacidad_btu ? Number(formData.capacidad_btu) : null,
+        // Asegura que toneladas sea número o null
+        toneladas: formData.toneladas ? Number(formData.toneladas) : null,
+        // Asegura que los booleanos se envíen correctamente
+        evaporadora_operativa: !!formData.evaporadora_operativa,
+        condensadora_operativa: !!formData.condensadora_operativa,
+        // Las propiedades 'fecha_ultimo_mantenimiento' y 'capacidad_btu' ya no se incluyen aquí
     };
+
+    // Elimina id del payload si estamos en modo 'add'
     if (formMode === 'add') {
         delete payload.id;
     }
+
+    console.log("Enviando payload:", payload); // Línea para depuración
 
     try {
       let updatedAire: AireAcondicionado | null = null;
 
       if (formMode === 'add') {
+        // Asegúrate que el payload coincide con los campos esperados por POST /api/aires en app.py
         const response = await api.post('/aires', payload);
+        // Ajusta según la estructura real de la respuesta del backend
         updatedAire = response.data?.data || response.data;
+
         if (updatedAire && updatedAire.id) {
              setAiresList(prevList => [...prevList, {
                 id: updatedAire!.id,
@@ -224,32 +277,48 @@ const Aires: React.FC = () => {
                 fecha_instalacion: updatedAire!.fecha_instalacion
              }]);
         } else {
-             console.warn("No se recibió el nuevo aire creado desde el backend. Refrescando lista...");
-             fetchAiresList();
+             console.warn("No se recibió el nuevo aire creado desde el backend o faltó el ID. Refrescando lista...");
+             fetchAiresList(); // Recargar lista como fallback
         }
 
       } else if (formMode === 'edit' && formData.id) {
+        // Asegúrate que el payload coincide con los campos esperados por PUT /api/aires/{id} en app.py
         const response = await api.put(`/aires/${formData.id}`, payload);
+        // Ajusta según la estructura real de la respuesta del backend
         updatedAire = response.data?.data || response.data;
+
+        // Actualiza el item en la lista - usa datos de la respuesta si están disponibles, si no, usa formData
         setAiresList(prevList => prevList.map(aire =>
           aire.id === formData.id
             ? {
-                ...aire,
+                ...aire, // Mantén campos existentes del item de la lista
                 nombre: updatedAire?.nombre ?? formData.nombre ?? aire.nombre,
                 ubicacion: updatedAire?.ubicacion ?? formData.ubicacion ?? aire.ubicacion,
                 fecha_instalacion: updatedAire?.fecha_instalacion ?? formData.fecha_instalacion ?? aire.fecha_instalacion,
+                // Actualiza otros campos en la lista si es necesario (ej. tipo)
               }
             : aire
         ));
       }
 
-      setShowEditModal(false);
+      setShowEditModal(false); // Cierra el modal si todo fue bien
     } catch (error: any) {
       console.error('Error al guardar:', error);
-      const message = error.response?.data?.mensaje || 'Error al guardar el aire acondicionado';
-      setEditError(message);
+      // Muestra un error más detallado si viene del backend
+      if (error.response) {
+          console.error("Error Respuesta Backend:", error.response.data);
+          const message = error.response.data?.mensaje || 'Error al guardar el aire acondicionado';
+          // Intenta mostrar errores específicos de campos si existen
+          const errorDetails = JSON.stringify(error.response.data?.errors || error.response.data);
+          setEditError(`${message} (Detalles: ${errorDetails})`);
+      } else {
+          // Error de red u otro
+          setEditError('Error de red o al procesar la solicitud');
+      }
+      // Mantén el modal abierto en caso de error
     }
   }, [formData, formMode, fetchAiresList]); // Dependencias
+
 
   // --- Abrir modal de Detalles (al hacer clic en la fila) ---
   const handleRowClick = useCallback(async (id: number) => {

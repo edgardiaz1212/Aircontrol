@@ -272,6 +272,53 @@ def get_aires():
     
     return jsonify(aires)
 
+@app.route('/api/aires/<int:aire_id>', methods=['GET'])
+@jwt_required()
+def get_aire_by_id(aire_id):
+    """
+    Obtiene los detalles de un aire acondicionado específico por su ID.
+    """
+    try:
+        # Llama al método del DataManager para obtener el aire
+        aire_obj = data_manager.obtener_aire_por_id(aire_id)
+
+        if aire_obj:
+            # Convertir el objeto SQLAlchemy a un diccionario JSON serializable
+            # Asegúrate de incluir todos los campos que necesita el frontend
+            aire_dict = {
+                'id': aire_obj.id,
+                'nombre': aire_obj.nombre,
+                'ubicacion': aire_obj.ubicacion,
+                'fecha_instalacion': aire_obj.fecha_instalacion, # Asume que es string YYYY-MM-DD
+                'tipo': aire_obj.tipo,
+                'toneladas': float(aire_obj.toneladas) if aire_obj.toneladas is not None else None,
+                # Evaporadora
+                'evaporadora_operativa': bool(aire_obj.evaporadora_operativa),
+                'evaporadora_marca': aire_obj.evaporadora_marca,
+                'evaporadora_modelo': aire_obj.evaporadora_modelo,
+                'evaporadora_serial': aire_obj.evaporadora_serial,
+                'evaporadora_codigo_inventario': aire_obj.evaporadora_codigo_inventario,
+                'evaporadora_ubicacion_instalacion': aire_obj.evaporadora_ubicacion_instalacion,
+                # Condensadora
+                'condensadora_operativa': bool(aire_obj.condensadora_operativa),
+                'condensadora_marca': aire_obj.condensadora_marca,
+                'condensadora_modelo': aire_obj.condensadora_modelo,
+                'condensadora_serial': aire_obj.condensadora_serial,
+                'condensadora_codigo_inventario': aire_obj.condensadora_codigo_inventario,
+                'condensadora_ubicacion_instalacion': aire_obj.condensadora_ubicacion_instalacion,
+                # Añade otros campos si los tienes en el modelo AireAcondicionado
+            }
+            return jsonify(aire_dict) # Devuelve el diccionario como JSON
+        else:
+            # Si no se encuentra el aire, devuelve 404 Not Found
+            return jsonify({'success': False, 'mensaje': 'Aire acondicionado no encontrado'}), 404
+
+    except Exception as e:
+        print(f"Error en get_aire_by_id para ID {aire_id}: {e}", file=sys.stderr)
+        traceback.print_exc()
+        # Devuelve 500 Internal Server Error en caso de otros errores
+        return jsonify({'success': False, 'mensaje': 'Error interno del servidor al obtener el aire acondicionado'}), 500
+
 @app.route('/api/aires', methods=['POST'])
 @jwt_required()
 def add_aire():

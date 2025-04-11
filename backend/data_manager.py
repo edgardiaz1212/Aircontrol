@@ -125,18 +125,48 @@ class DataManager:
         
         return pd.DataFrame(lecturas_data)
     
-    def agregar_aire(self, nombre, ubicacion, fecha_instalacion):
-        # Crear nuevo aire acondicionado en la base de datos
-        nuevo_aire = AireAcondicionado(
-            nombre=nombre,
-            ubicacion=ubicacion,
-            fecha_instalacion=fecha_instalacion
-        )
-        
-        session.add(nuevo_aire)
-        session.commit()
-        
-        return nuevo_aire.id
+    def agregar_aire(self, nombre, ubicacion, fecha_instalacion, tipo, toneladas,
+                     evaporadora_operativa, evaporadora_marca, evaporadora_modelo,
+                     evaporadora_serial, evaporadora_codigo_inventario,
+                     evaporadora_ubicacion_instalacion, condensadora_operativa,
+                     condensadora_marca, condensadora_modelo, condensadora_serial,
+                     condensadora_codigo_inventario, condensadora_ubicacion_instalacion):
+        """
+        Agrega un nuevo aire acondicionado a la base de datos con todos sus detalles.
+        Maneja errores durante el proceso.
+        """
+        try:
+            # Crear nuevo aire acondicionado en la base de datos con todos los campos
+            nuevo_aire = AireAcondicionado(
+                nombre=nombre,
+                ubicacion=ubicacion,
+                fecha_instalacion=fecha_instalacion,
+                tipo=tipo,
+                toneladas=toneladas,
+                evaporadora_operativa=evaporadora_operativa,
+                evaporadora_marca=evaporadora_marca,
+                evaporadora_modelo=evaporadora_modelo,
+                evaporadora_serial=evaporadora_serial,
+                evaporadora_codigo_inventario=evaporadora_codigo_inventario,
+                evaporadora_ubicacion_instalacion=evaporadora_ubicacion_instalacion,
+                condensadora_operativa=condensadora_operativa,
+                condensadora_marca=condensadora_marca,
+                condensadora_modelo=condensadora_modelo,
+                condensadora_serial=condensadora_serial,
+                condensadora_codigo_inventario=condensadora_codigo_inventario,
+                condensadora_ubicacion_instalacion=condensadora_ubicacion_instalacion
+            )
+
+            session.add(nuevo_aire)
+            session.commit() # Intentar guardar en la BD
+
+            return nuevo_aire.id # Devolver ID si el commit fue exitoso
+
+        except Exception as e:
+            print(f"!!! ERROR en data_manager.agregar_aire: {e}", file=sys.stderr)
+            traceback.print_exc() # Imprime el traceback completo en la consola del servidor
+            session.rollback() # MUY IMPORTANTE: Deshacer cambios en la sesión si hubo error
+            return None 
         
     def actualizar_aire(self, aire_id, nombre, ubicacion, fecha_instalacion):
         """
