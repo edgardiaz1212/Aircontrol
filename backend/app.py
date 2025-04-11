@@ -283,13 +283,43 @@ def add_aire():
     nombre = data.get('nombre', '')
     ubicacion = data.get('ubicacion', '')
     fecha_instalacion = data.get('fecha_instalacion', '')
+    tipo = data.get('tipo', '')
+    toneladas = data.get('toneladas', 0)
+    evaporadora_operativa = data.get('evaporadora_operativa', True)
+    evaporadora_marca = data.get('evaporadora_marca', '')
+    evaporadora_modelo = data.get('evaporadora_modelo', '')
+    evaporadora_serial = data.get('evaporadora_serial', '')
+    evaporadora_codigo_inventario = data.get('evaporadora_codigo_inventario', '')
+    evaporadora_ubicacion_instalacion = data.get('evaporadora_ubicacion_instalacion', '')
+    condensadora_operativa = data.get('condensadora_operativa', True)
+    condensadora_marca = data.get('condensadora_marca', '')
+    condensadora_modelo = data.get('condensadora_modelo', '')
+    condensadora_serial = data.get('condensadora_serial', '')
+    condensadora_codigo_inventario = data.get('condensadora_codigo_inventario', '')
+    condensadora_ubicacion_instalacion = data.get('condensadora_ubicacion_instalacion', '')
     
-    if not (nombre and ubicacion and fecha_instalacion):
-        return jsonify({'success': False, 'mensaje': 'Todos los campos son requeridos'})
+    if not (nombre and ubicacion and fecha_instalacion and tipo):
+        return jsonify({'success': False, 'mensaje': 'Nombre, ubicación, fecha de instalación y tipo son requeridos'})
     
-    
-    
-    aire_id = data_manager.agregar_aire(nombre, ubicacion, fecha_instalacion)
+    aire_id = data_manager.agregar_aire(
+        nombre=nombre,
+        ubicacion=ubicacion,
+        fecha_instalacion=fecha_instalacion,
+        tipo=tipo,
+        toneladas=toneladas,
+        evaporadora_operativa=evaporadora_operativa,
+        evaporadora_marca=evaporadora_marca,
+        evaporadora_modelo=evaporadora_modelo,
+        evaporadora_serial=evaporadora_serial,
+        evaporadora_codigo_inventario=evaporadora_codigo_inventario,
+        evaporadora_ubicacion_instalacion=evaporadora_ubicacion_instalacion,
+        condensadora_operativa=condensadora_operativa,
+        condensadora_marca=condensadora_marca,
+        condensadora_modelo=condensadora_modelo,
+        condensadora_serial=condensadora_serial,
+        condensadora_codigo_inventario=condensadora_codigo_inventario,
+        condensadora_ubicacion_instalacion=condensadora_ubicacion_instalacion
+    )
     
     if aire_id:
         return jsonify({'success': True, 'mensaje': 'Aire acondicionado agregado exitosamente', 'id': aire_id})
@@ -307,11 +337,44 @@ def update_aire(aire_id):
     nombre = data.get('nombre', '')
     ubicacion = data.get('ubicacion', '')
     fecha_instalacion = data.get('fecha_instalacion', '')
+    tipo = data.get('tipo', '')
+    toneladas = data.get('toneladas', 0)
+    evaporadora_operativa = data.get('evaporadora_operativa', True)
+    evaporadora_marca = data.get('evaporadora_marca', '')
+    evaporadora_modelo = data.get('evaporadora_modelo', '')
+    evaporadora_serial = data.get('evaporadora_serial', '')
+    evaporadora_codigo_inventario = data.get('evaporadora_codigo_inventario', '')
+    evaporadora_ubicacion_instalacion = data.get('evaporadora_ubicacion_instalacion', '')
+    condensadora_operativa = data.get('condensadora_operativa', True)
+    condensadora_marca = data.get('condensadora_marca', '')
+    condensadora_modelo = data.get('condensadora_modelo', '')
+    condensadora_serial = data.get('condensadora_serial', '')
+    condensadora_codigo_inventario = data.get('condensadora_codigo_inventario', '')
+    condensadora_ubicacion_instalacion = data.get('condensadora_ubicacion_instalacion', '')
     
-    if not (nombre and ubicacion and fecha_instalacion):
-        return jsonify({'success': False, 'mensaje': 'Todos los campos son requeridos'})
+    if not (nombre and ubicacion and fecha_instalacion and tipo):
+        return jsonify({'success': False, 'mensaje': 'Nombre, ubicación, fecha de instalación y tipo son requeridos'})
     
-    actualizado = data_manager.actualizar_aire(aire_id, nombre, ubicacion, fecha_instalacion)
+    actualizado = data_manager.actualizar_aire(
+        aire_id=aire_id,
+        nombre=nombre,
+        ubicacion=ubicacion,
+        fecha_instalacion=fecha_instalacion,
+        tipo=tipo,
+        toneladas=toneladas,
+        evaporadora_operativa=evaporadora_operativa,
+        evaporadora_marca=evaporadora_marca,
+        evaporadora_modelo=evaporadora_modelo,
+        evaporadora_serial=evaporadora_serial,
+        evaporadora_codigo_inventario=evaporadora_codigo_inventario,
+        evaporadora_ubicacion_instalacion=evaporadora_ubicacion_instalacion,
+        condensadora_operativa=condensadora_operativa,
+        condensadora_marca=condensadora_marca,
+        condensadora_modelo=condensadora_modelo,
+        condensadora_serial=condensadora_serial,
+        condensadora_codigo_inventario=condensadora_codigo_inventario,
+        condensadora_ubicacion_instalacion=condensadora_ubicacion_instalacion
+    )
     
     if actualizado:
         return jsonify({'success': True, 'mensaje': 'Aire acondicionado actualizado exitosamente'})
