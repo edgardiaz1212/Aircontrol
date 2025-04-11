@@ -125,7 +125,7 @@ const AppLayout: React.FC = () => {
         {showFooter && (
           <footer className="app-footer">
             <div className="d-flex align-items-center justify-content-center">
-              <img src={madDataIcon} alt="MAD Data" height="60" className="me-2" />
+              <img src={madDataIcon} alt="MAD Data" height="80" className="me-2" />
               <span className="text-muted">© {new Date().getFullYear()}</span>
             </div>
           </footer>
