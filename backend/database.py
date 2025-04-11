@@ -1,6 +1,6 @@
 import os
 import base64
-from sqlalchemy import create_engine, Column, Integer, String, Float, DateTime, ForeignKey, Text, LargeBinary, Boolean
+from sqlalchemy import create_engine, Column, Integer, String, Float, DateTime, ForeignKey, Text, LargeBinary, Boolean, Date
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, relationship
 from datetime import datetime
@@ -24,8 +24,30 @@ class AireAcondicionado(Base):
     
     id = Column(Integer, primary_key=True)
     nombre = Column(String(100), nullable=False)
-    ubicacion = Column(String(200))
-    fecha_instalacion = Column(String(10))
+    ubicacion = Column(String(200), comment="Ubicación general del equipo completo") # Ubicación general del AC
+    # Considera cambiar a Date para mejor manejo y queries
+    fecha_instalacion = Column(Date, nullable=True) # Cambiado a Date, permite nulos
+
+   
+    tipo = Column(String(50), nullable=True, comment="Tipo de aire (precision, confort, etc.)") 
+    toneladas = Column(Float, nullable=True, comment="Capacidad en toneladas de refrigeración")
+
+    # --- Detalles Evaporadora ---
+    evaporadora_operativa = Column(Boolean, nullable=False, default=True, comment="Estado operativo de la evaporadora")
+    evaporadora_marca = Column(String(100), nullable=True)
+    evaporadora_modelo = Column(String(100), nullable=True)
+    evaporadora_serial = Column(String(100), nullable=True, unique=True) # Seriales suelen ser únicos
+    evaporadora_codigo_inventario = Column(String(100), nullable=True, unique=True) # Códigos de inventario suelen ser únicos
+    evaporadora_ubicacion_instalacion = Column(String(200), nullable=True, comment="Ubicación específica de la evaporadora si difiere de la general")
+
+    # --- Detalles Condensadora ---
+    condensadora_operativa = Column(Boolean, nullable=False, default=True, comment="Estado operativo de la condensadora")
+    condensadora_marca = Column(String(100), nullable=True)
+    condensadora_modelo = Column(String(100), nullable=True)
+    condensadora_serial = Column(String(100), nullable=True, unique=True) # Seriales suelen ser únicos
+    condensadora_codigo_inventario = Column(String(100), nullable=True, unique=True) # Códigos de inventario suelen ser únicos
+    condensadora_ubicacion_instalacion = Column(String(200), nullable=True, comment="Ubicación específica de la condensadora si difiere de la general")
+   
     
     # Relación con las lecturas
     lecturas = relationship("Lectura", back_populates="aire", cascade="all, delete-orphan")

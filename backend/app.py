@@ -1,3 +1,19 @@
+import os
+import sys
+from dotenv import load_dotenv
+import traceback
+dotenv_path = os.path.join(os.path.dirname(__file__), '..', '.env') # Sube un nivel para encontrar .env en la raíz
+load_dotenv(dotenv_path=dotenv_path)
+db_url_check = os.getenv('DATABASE_URL')
+if not db_url_check:
+    print("ERROR URGENTE: DATABASE_URL no se cargó desde .env en app.py!", file=sys.stderr)
+    print(f"Intentando cargar desde: {dotenv_path}", file=sys.stderr)
+    # Podrías decidir salir si la URL es esencial para continuar
+    # sys.exit(1)
+else:
+    print(f"app.py: DATABASE_URL cargada correctamente desde {dotenv_path}")
+
+
 from database import init_db, session, Usuario, Lectura, AireAcondicionado # Asegúrate que session y Lectura estén aquí
 from data_manager import DataManager
 from flask import Flask, jsonify, request, session
@@ -11,20 +27,13 @@ from flask_jwt_extended import (
 )
 from datetime import timedelta, datetime
 import pandas as pd
-import os
-import sys
-from dotenv import load_dotenv
-import traceback
 
 
-# Load environment variables
-load_dotenv()
+# # Añadir el directorio principal al path para importar los módulos de database y data_manager
+# sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-# Añadir el directorio principal al path para importar los módulos de database y data_manager
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
-from backend.data_manager import DataManager
-from backend.database import init_db, Usuario
+# from backend.data_manager import DataManager
+# from backend.database import init_db, Usuario
 
 # Inicializar la aplicación Flask
 app = Flask(__name__)
