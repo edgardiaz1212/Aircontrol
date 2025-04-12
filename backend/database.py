@@ -154,6 +154,14 @@ class Usuario(Base):
     def __repr__(self):
         return f"<Usuario(id={self.id}, username='{self.username}', rol='{self.rol}')>"
 
-# Crear todas las tablas en la base de datos
+from alembic.config import Config
+from alembic import command
+
+def run_migrations():
+    """Run database migrations using Alembic"""
+    alembic_cfg = Config("alembic.ini")
+    command.upgrade(alembic_cfg, "head")
+
+# Crear todas las tablas en la base de datos (now uses migrations)
 def init_db():
-    Base.metadata.create_all(engine)
+    run_migrations()
