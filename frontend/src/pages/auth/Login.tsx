@@ -3,6 +3,7 @@ import { Form, Button, Card, Alert } from 'react-bootstrap';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAppContext } from '../../context/AppContext';
 import { FiLogIn } from 'react-icons/fi';
+import DbStatusIndicator from '../../components/DbStatusIndicator';
 
 const Login: React.FC = () => {
   const [username, setUsername] = useState<string>('');
@@ -107,6 +108,7 @@ const Login: React.FC = () => {
           </p>
         </div>
       </Card.Body>
+      <DbStatusIndicator/>
     </Card>
   );
 };
