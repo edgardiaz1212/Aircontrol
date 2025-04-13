@@ -1004,6 +1004,42 @@ def get_dashboard_resumen():
         # Considera devolver un error más específico si es posible
         return jsonify({'success': False, 'mensaje': 'Error interno al obtener el resumen del dashboard'}), 500
 
+#para probar conexion backend
+from flask import Flask, jsonify
+from sqlalchemy.exc import OperationalError
+from backend.database import SessionLocal # Asegúrate que SessionLocal esté disponible
+
+# ... (resto de tu configuración de app Flask)
+
+@app.route('/api/health/db', methods=['GET'])
+def health_check_db():
+    """Verifica el estado de la conexión a la base de datos."""
+    db = None
+    try:
+        # Intenta obtener una sesión y ejecutar una consulta simple
+        db = SessionLocal()
+        # db.execute('SELECT 1') # Para SQLAlchemy < 2.0
+        db.execute(text('SELECT 1')) # Para SQLAlchemy >= 1.4 (necesitas importar text from sqlalchemy)
+        # Si la consulta funciona, la conexión está OK
+        return jsonify({"status": "connected", "message": "Database connection successful."}), 200
+    except OperationalError as e:
+        # Error común cuando no se puede conectar a la DB
+        # Puedes loggear el error si quieres más detalles en el servidor
+        # current_app.logger.error(f"Database connection error: {e}")
+        return jsonify({"status": "disconnected", "message": "Database connection failed."}), 503 # 503 Service Unavailable es apropiado
+    except Exception as e:
+        # Captura otros posibles errores
+        # current_app.logger.error(f"Unexpected health check error: {e}")
+        return jsonify({"status": "error", "message": "An unexpected error occurred during health check."}), 500
+    finally:
+        # Asegúrate de cerrar la sesión si se abrió
+        if db:
+            db.close()
+
+# No olvides importar text si usas SQLAlchemy >= 1.4
+from sqlalchemy import text
+#hasta aca la prueba
+
 # Iniciar servidor
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))

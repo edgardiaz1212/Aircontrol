@@ -22,7 +22,8 @@ target_metadata = Base.metadata
 # can be acquired:
 # my_important_option = config.get_main_option("my_important_option")
 # ... etc.
-
+# Cargar variables de entorno desde .env
+load_dotenv(os.path.join(os.path.dirname(__file__), '../.env'))
 
 def run_migrations_offline() -> None:
     """Run migrations in 'offline' mode.
