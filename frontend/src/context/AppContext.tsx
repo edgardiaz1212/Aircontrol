@@ -20,9 +20,7 @@ interface AppContextProps {
   register: (userData: RegisterData) => Promise<boolean>;
   logout: () => void;
   clearError: () => void;
-  //para prueba de conexion bd
-  dbStatus: 'checking' | 'connected' | 'disconnected' | 'error'; // Nuevo estado
-  checkDbStatus: () => Promise<void>; // Nueva función
+  
 
 }
 
@@ -44,9 +42,7 @@ const AppContext = createContext<AppContextProps>({
   register: async () => false,
   logout: () => {},
   clearError: () => {},
-  //para prueba de conexion bd
-  dbStatus: 'checking', // Estado inicial
-  checkDbStatus: async () => {} // Función inicial
+  
 });
 
 // Custom hook para acceder al contexto
@@ -61,9 +57,7 @@ export const AppContextProvider: React.FC<AppContextProviderProps> = ({ children
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
-  //para probar conexion bd
-  const [dbStatus, setDbStatus] = useState<'checking' | 'connected' | 'disconnected' | 'error'>('checking'); // Estado inicial
-
+  
 
   // Cargar usuario si hay token
   useEffect(() => {
@@ -171,39 +165,7 @@ export const AppContextProvider: React.FC<AppContextProviderProps> = ({ children
   const clearError = () => {
     setError(null);
   };
-//Para probar conexionBD
-// Función para verificar el estado de la DB
-const checkDbStatus = useCallback(async () => {
-  // Opcional: poner en 'checking' si quieres feedback visual inmediato al refrescar
-  // setDbStatus('checking');
-  try {
-    const response = await api.get<{ status: string }>('/health/db'); // Llama al nuevo endpoint
-    if (response.data.status === 'connected') {
-      setDbStatus('connected');
-    } else {
-      // Tratar 'disconnected' u otros estados del backend como 'disconnected' aquí
-      setDbStatus('disconnected');
-    }
-  } catch (error) {
-    // Si la API falla (ej. 503, 500, network error), asumimos desconectado o error
-    console.error("Error checking DB status:", error);
-    setDbStatus('error'); // O 'disconnected', según prefieras
-  }
-}, []); // useCallback para evitar re-creaciones innecesarias
 
-// Efecto para verificar el estado periódicamente y al inicio
-useEffect(() => {
-  checkDbStatus(); // Verificar al cargar la app
-
-  const intervalId = setInterval(() => {
-    checkDbStatus();
-  }, 30000); // Verificar cada 30 segundos (ajusta según necesidad)
-
-  // Limpiar el intervalo cuando el componente se desmonte
-  return () => clearInterval(intervalId);
-}, [checkDbStatus]); // Ejecutar cuando checkDbStatus cambie (solo una vez gracias a useCallback)
-
-//fin prueba conexion bd
 
 
   return (
@@ -217,8 +179,7 @@ useEffect(() => {
         register,
         logout,
         clearError,
-        dbStatus,//para probar conexion bd
-    checkDbStatus,//para probar conexion bd
+
       }}
     >
       {children}
