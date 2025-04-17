@@ -28,6 +28,19 @@ interface MantenimientoAddModalProps {
   clearError: () => void;
 }
 
+// --- DEFINIR LOS TIPOS DE MANTENIMIENTO ---
+// Puedes ajustar esta lista según tus necesidades
+const tiposMantenimientoDisponibles = [
+  "Preventivo",
+  "Correctivo",
+  "Predictivo",
+  "Mejora",
+  "Inspección",
+  "Limpieza General",
+  "Otro", // Opción genérica
+];
+
+
 const MantenimientoAddModal: React.FC<MantenimientoAddModalProps> = ({
   show,
   onHide,
@@ -171,7 +184,19 @@ const MantenimientoAddModal: React.FC<MantenimientoAddModalProps> = ({
           {/* --- Resto de los campos del formulario (sin cambios) --- */}
           <Form.Group className="mb-3" controlId="formTipoMantenimiento">
             <Form.Label>Tipo de Mantenimiento <span className="text-danger">*</span></Form.Label>
-            <Form.Control type="text" name="tipo_mantenimiento" value={formData.tipo_mantenimiento} onChange={onChange} required placeholder="Ej: Preventivo, Correctivo"/>
+            <Form.Select
+                name="tipo_mantenimiento"
+                value={formData.tipo_mantenimiento}
+                onChange={onChange}
+                required
+            >
+                <option value="">-- Seleccione un Tipo --</option>
+                {tiposMantenimientoDisponibles.map((tipo) => (
+                    <option key={tipo} value={tipo}>
+                        {tipo}
+                    </option>
+                ))}
+            </Form.Select>
           </Form.Group>
           <Form.Group className="mb-3" controlId="formTecnicoMantenimiento">
             <Form.Label>Técnico Responsable <span className="text-danger">*</span></Form.Label>
