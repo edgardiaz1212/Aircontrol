@@ -93,9 +93,6 @@ class Mantenimiento(Base):
     imagen_tipo = Column(String(50))
     imagen_datos = Column(LargeBinary)  # Para almacenar la imagen como datos binarios
     
-    # Store the ID of the user who created this record
-    creado_por_id = Column(Integer, ForeignKey('usuarios.id'), nullable=False) # Make nullable=False if a creator is mandatory
-
     # Relación con el aire acondicionado
     aire = relationship("AireAcondicionado", back_populates="mantenimientos")
     otro_equipo = relationship("OtroEquipo", back_populates="mantenimientos")
@@ -165,8 +162,7 @@ class Usuario(Base):
     activo = Column(Boolean, default=True)
     fecha_registro = Column(DateTime, nullable=False, default=datetime.now)
     ultima_conexion = Column(DateTime, nullable=True)
-    mantenimientos_creados = relationship("Mantenimiento", back_populates="creado_por")
-
+    
     def __repr__(self):
         return f"<Usuario(id={self.id}, username='{self.username}', rol='{self.rol}')>"
 
