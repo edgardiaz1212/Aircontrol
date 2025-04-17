@@ -97,12 +97,12 @@ const AiresViewModal: React.FC<AiresViewModalProps> = ({
 
                         {/* Detalles Evaporadora */}
                         <Col xs={12}><h6 className="text-primary mb-2">Unidad Evaporadora</h6></Col>
-                        {renderDetail('Operativa', selectedAireDetails.evaporadora_operativa)}
-                        {renderDetail('Marca', selectedAireDetails.evaporadora_marca)}
-                        {renderDetail('Modelo', selectedAireDetails.evaporadora_modelo)}
-                        {renderDetail('Serial', selectedAireDetails.evaporadora_serial)}
-                        {renderDetail('Cód. Inventario', selectedAireDetails.evaporadora_codigo_inventario)}
-                        {renderDetail('Ubic. Específica', selectedAireDetails.evaporadora_ubicacion_instalacion)}
+                        {renderDetail('Evaporadora - Operativa', selectedAireDetails.evaporadora_operativa)}
+                        {renderDetail('Evaporadora - Marca', selectedAireDetails.evaporadora_marca)}
+                        {renderDetail('Evaporadora - Modelo', selectedAireDetails.evaporadora_modelo)}
+                        {renderDetail('Evaporadora - Serial', selectedAireDetails.evaporadora_serial)}
+                        {renderDetail('Evaporadora - Cód. Inventario', selectedAireDetails.evaporadora_codigo_inventario)}
+                        {renderDetail('Evaporadora - Ubic. Específica', selectedAireDetails.evaporadora_ubicacion_instalacion)}
 
                         {/* Separador */}
                          <Col xs={12}><hr className="my-3" /></Col>
