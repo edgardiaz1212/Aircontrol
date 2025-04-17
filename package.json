@@ -6,6 +6,8 @@
   },
   "dependencies": {
     "@mui/x-data-grid": "^7.28.3",
+    "@types/jspdf": "^1.3.3",
+    "jspdf": "^3.0.1",
     "react-toastify": "^11.0.5"
   }
 }
