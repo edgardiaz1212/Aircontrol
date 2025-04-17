@@ -98,27 +98,51 @@ const Mantenimientos: React.FC = () => {
       try {
         // --- 1. Cargar Aires ---
         try {
-            const airesResponse = await api.get("/aires");
-            const potentialAiresData = airesResponse.data;
-            if (Array.isArray(potentialAiresData)) {
-                const validatedAires = potentialAiresData.map(item => ({
-                    id: item.id ?? 0,
-                    nombre: item.nombre ?? 'Sin Nombre',
-                    ubicacion: item.ubicacion ?? 'Sin Ubicación'
-                }));
-                setAires(validatedAires);
-                fetchedAires = validatedAires; // Guardar para usar después
-            } else {
-                throw new Error("Formato inesperado al cargar aires.");
-            }
-        } catch (apiError: any) {
-             console.error("Error cargando aires:", apiError);
-             setAires([]); // Asegurar estado vacío
-             // Establecer error y detener si la carga de aires es crítica
-             setError(apiError.response?.data?.mensaje || "Error de red al cargar lista de aires.");
-             setLoading(false);
-             return; // Detener fetchData si falla la carga de aires
-        }
+          const airesResponse = await api.get("/aires");
+          console.log("Respuesta cruda de /api/aires:", airesResponse); // <-- AÑADIR LOGGING
+      
+          let potentialAiresData: any; // Tipo 'any' temporalmente para inspección
+      
+   // Primero verifica si la respuesta completa tiene una propiedad 'data' que sea un array
+          if (airesResponse.data && Array.isArray(airesResponse.data.data)) {
+              potentialAiresData = airesResponse.data.data; // Asume estructura { data: [...] }
+              console.log("Usando airesResponse.data.data");
+          }
+          // Si no, verifica si la respuesta directa es un array
+          else if (Array.isArray(airesResponse.data)) {
+              potentialAiresData = airesResponse.data; // Asume estructura [...]
+              console.log("Usando airesResponse.data directamente");
+          }
+          // Si ninguna de las anteriores, el formato es inesperado
+          else {
+              console.error("Formato inesperado en la respuesta de /api/aires:", airesResponse.data);
+              throw new Error("Formato inesperado al cargar aires.");
+          }
+       
+      
+          // Ahora potentialAiresData debería ser el array (o se lanzó un error)
+          // Validar que realmente sea un array (doble chequeo por si acaso)
+          if (Array.isArray(potentialAiresData)) {
+              const validatedAires = potentialAiresData.map(item => ({
+                  id: item.id ?? 0,
+                  nombre: item.nombre ?? 'Sin Nombre',
+                  ubicacion: item.ubicacion ?? 'Sin Ubicación'
+              }));
+              setAires(validatedAires);
+              fetchedAires = validatedAires; // Guardar para usar después
+          } else {
+              // Esto no debería ocurrir si la lógica anterior es correcta, pero por seguridad:
+              console.error("Error interno: potentialAiresData no es un array después de la verificación.");
+              throw new Error("Error interno al procesar datos de aires.");
+          }
+      
+      } catch (apiError: any) {
+           console.error("Error cargando aires:", apiError);
+           setAires([]); // Asegurar estado vacío
+           setError(apiError.response?.data?.mensaje || apiError.message || "Error de red al cargar lista de aires.");
+           setLoading(false);
+           return; // Detener fetchData si falla la carga de aires
+      }
 
         // --- 2. Cargar Otros Equipos (después de cargar aires) ---
         try {
