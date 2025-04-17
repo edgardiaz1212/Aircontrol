@@ -40,7 +40,7 @@ api.interceptors.response.use(
       // Si es error de autenticación, redirigir al login
       localStorage.removeItem('access_token');
       localStorage.removeItem('user');
-      window.location.href = '/auth/login';
+      window.location.href = '/aircontrol/auth/login';
     }
     return Promise.reject(error);
   }

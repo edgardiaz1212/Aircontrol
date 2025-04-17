@@ -1,177 +1,129 @@
+// src/components/Aires/AiresViewModal.tsx
 import React from 'react';
-import { Modal, Button, Spinner, Alert, ListGroup, Badge } from 'react-bootstrap'; // Añadir Badge
-import { FiWind, FiMapPin, FiCalendar, FiTag, FiSettings, FiThermometer, FiPackage, FiZap, FiInfo, FiCheckCircle, FiXCircle } from 'react-icons/fi'; // Ajustar iconos
+import { Modal, Button, Spinner, Alert, Row, Col } from 'react-bootstrap';
 
-// --- Interfaz actualizada (debe coincidir con la de Aires.tsx) ---
-interface AireAcondicionado {
-  id: number;
-  nombre: string;
-  ubicacion: string;
-  fecha_instalacion: string;
-  tipo?: string;
-  toneladas?: number | null;
-  // Evaporadora
-  evaporadora_operativa?: boolean;
-  evaporadora_marca?: string;
-  evaporadora_modelo?: string;
-  evaporadora_serial?: string;
-  evaporadora_codigo_inventario?: string;
-  evaporadora_ubicacion_instalacion?: string;
-  // Condensadora
-  condensadora_operativa?: boolean;
-  condensadora_marca?: string;
-  condensadora_modelo?: string;
-  condensadora_serial?: string;
-  condensadora_codigo_inventario?: string;
-  condensadora_ubicacion_instalacion?: string;
+// --- IMPORTAR LA INTERFAZ DESDE EL PADRE ---
+// Ajusta la ruta relativa si es necesario para apuntar a src/pages/Aires.tsx
+import { AireAcondicionado } from '../../pages/Aires';
+
+// --- ELIMINAR LA DEFINICIÓN INLINE (si existía) ---
+/*
+interface AireAcondicionado { // <-- BORRAR ESTA DEFINICIÓN LOCAL
+    // ... campos ...
 }
+*/
 
+// Interfaz de las props del modal
 interface AiresViewModalProps {
-    show: boolean;
-    onHide: () => void;
-    selectedAireDetails: AireAcondicionado | null;
-    loadingDetails: boolean;
-    viewError: string | null;
-    formatDate: (dateString: string | null | undefined, forInput?: boolean) => string;
+    show: boolean; // Controla la visibilidad del modal
+    onHide: () => void; // Función para cerrar el modal
+    selectedAireDetails: AireAcondicionado | null; // Datos del aire a mostrar (usa la interfaz importada)
+    loadingDetails: boolean; // Indica si se están cargando los detalles
+    viewError: string | null; // Mensaje de error específico de este modal
+    formatDate: (dateString: string | null | undefined, forInput?: boolean) => string; // Helper para formatear fechas
 }
 
+// Componente funcional del Modal de Vista
 const AiresViewModal: React.FC<AiresViewModalProps> = ({
     show,
     onHide,
-    selectedAireDetails,
+    selectedAireDetails, // <-- Prop ahora usa el tipo importado
     loadingDetails,
     viewError,
-    formatDate
+    formatDate,
 }) => {
 
-    // Helper para mostrar booleanos de forma legible
-    const renderBoolean = (value: boolean | undefined | null) => {
-        if (value === true) {
-            return <Badge bg="success"><FiCheckCircle className="me-1" /> Sí</Badge>;
+    // Helper para renderizar un par etiqueta-valor
+    const renderDetail = (label: string, value: string | number | boolean | null | undefined) => {
+        let displayValue: React.ReactNode = '-'; // Valor por defecto si es null, undefined o vacío
+
+        // Formatear el valor para mostrarlo
+        if (value !== null && value !== undefined && value !== '') {
+            if (typeof value === 'boolean') {
+                // Mostrar como badge Sí/No para booleanos
+                displayValue = (
+                    <span className={`badge bg-${value ? 'success' : 'danger'}`}>
+                        {value ? 'Sí' : 'No'}
+                    </span>
+                );
+            } else if (typeof value === 'number' && isNaN(value)) {
+                // Manejar NaN específicamente si es necesario (ej. toneladas)
+                displayValue = '-';
+            }
+             else {
+                // Convertir a string para otros tipos (números, strings)
+                displayValue = value.toString();
+            }
         }
-        if (value === false) {
-            return <Badge bg="danger"><FiXCircle className="me-1" /> No</Badge>;
-        }
-        return <Badge bg="secondary">N/A</Badge>;
+
+        // Devolver la estructura de columnas para el detalle
+        return (
+            <React.Fragment key={label}> {/* Usar Fragment con key para listas implícitas */}
+                <Col xs={5} sm={4} className="text-muted fw-bold">{label}:</Col>
+                <Col xs={7} sm={8}>{displayValue}</Col>
+            </React.Fragment>
+        );
     };
 
     return (
-        <Modal show={show} onHide={onHide} size="lg">
+        // Componente Modal de react-bootstrap
+        <Modal show={show} onHide={onHide} size="lg" centered>
             <Modal.Header closeButton>
-                <Modal.Title>
-                    <FiInfo className="me-2" /> Detalles del Aire Acondicionado
-                </Modal.Title>
+                <Modal.Title>Detalles del Aire Acondicionado</Modal.Title>
             </Modal.Header>
             <Modal.Body>
-                {loadingDetails ? (
+                {/* Mostrar error si existe */}
+                {viewError && <Alert variant="danger">{viewError}</Alert>}
+                {/* Mostrar spinner si está cargando */}
+                {loadingDetails && (
                     <div className="text-center p-4">
                         <Spinner animation="border" variant="primary" />
                         <p className="mt-2 mb-0">Cargando detalles...</p>
                     </div>
-                ) : viewError ? (
-                    <Alert variant="danger">{viewError}</Alert>
-                ) : selectedAireDetails ? (
-                    <ListGroup variant="flush">
+                )}
+                {/* Mostrar detalles si NO está cargando y HAY datos */}
+                {selectedAireDetails && !loadingDetails && (
+                    <Row className="g-3"> {/* g-3 añade espacio entre columnas */}
                         {/* Información General */}
-                        <ListGroup.Item className="bg-light fw-bold">Información General</ListGroup.Item>
-                        <ListGroup.Item>
-                            <FiWind className="me-2 text-primary" /> <strong>Nombre:</strong> {selectedAireDetails.nombre}
-                        </ListGroup.Item>
-                        <ListGroup.Item>
-                            <FiMapPin className="me-2 text-success" /> <strong>Ubicación General:</strong> {selectedAireDetails.ubicacion}
-                        </ListGroup.Item>
-                        <ListGroup.Item>
-                            <FiCalendar className="me-2 text-info" /> <strong>Fecha Instalación:</strong> {formatDate(selectedAireDetails.fecha_instalacion)}
-                        </ListGroup.Item>
-                        {selectedAireDetails.tipo && (
-                            <ListGroup.Item>
-                                <FiTag className="me-2 text-secondary" /> <strong>Tipo:</strong> {selectedAireDetails.tipo}
-                            </ListGroup.Item>
-                        )}
-                        {selectedAireDetails.toneladas != null && ( // Usar toneladas en lugar de capacidad_btu
-                            <ListGroup.Item>
-                                <FiThermometer className="me-2 text-danger" /> <strong>Capacidad:</strong> {selectedAireDetails.toneladas} Toneladas
-                            </ListGroup.Item>
-                        )}
+                        {renderDetail('ID', selectedAireDetails.id)}
+                        {renderDetail('Nombre', selectedAireDetails.nombre)}
+                        {renderDetail('Ubicación', selectedAireDetails.ubicacion)}
+                        {renderDetail('Fecha Instalación', formatDate(selectedAireDetails.fecha_instalacion))}
+                        {renderDetail('Tipo', selectedAireDetails.tipo)}
+                        {renderDetail('Toneladas', selectedAireDetails.toneladas)}
 
-                        {/* Unidad Evaporadora */}
-                        <ListGroup.Item className="bg-light fw-bold mt-3">Unidad Evaporadora</ListGroup.Item>
-                        <ListGroup.Item>
-                             <strong>Operativa:</strong> {renderBoolean(selectedAireDetails.evaporadora_operativa)}
-                        </ListGroup.Item>
-                        {selectedAireDetails.evaporadora_marca && (
-                            <ListGroup.Item>
-                                <FiTag className="me-2 text-secondary" /> <strong>Marca:</strong> {selectedAireDetails.evaporadora_marca}
-                            </ListGroup.Item>
-                        )}
-                        {selectedAireDetails.evaporadora_modelo && (
-                            <ListGroup.Item>
-                                <FiSettings className="me-2 text-secondary" /> <strong>Modelo:</strong> {selectedAireDetails.evaporadora_modelo}
-                            </ListGroup.Item>
-                        )}
-                        {selectedAireDetails.evaporadora_serial && (
-                            <ListGroup.Item>
-                                <FiTag className="me-2 text-muted" /> <strong>Serial:</strong> {selectedAireDetails.evaporadora_serial}
-                            </ListGroup.Item>
-                        )}
-                         {selectedAireDetails.evaporadora_codigo_inventario && (
-                            <ListGroup.Item>
-                                <FiTag className="me-2 text-muted" /> <strong>Cód. Inventario:</strong> {selectedAireDetails.evaporadora_codigo_inventario}
-                            </ListGroup.Item>
-                        )}
-                         {selectedAireDetails.evaporadora_ubicacion_instalacion && (
-                            <ListGroup.Item>
-                                <FiMapPin className="me-2 text-muted" /> <strong>Ubicación Específica:</strong> {selectedAireDetails.evaporadora_ubicacion_instalacion}
-                            </ListGroup.Item>
-                        )}
+                        {/* Separador */}
+                        <Col xs={12}><hr className="my-3" /></Col>
 
-                        {/* Unidad Condensadora */}
-                        <ListGroup.Item className="bg-light fw-bold mt-3">Unidad Condensadora</ListGroup.Item>
-                         <ListGroup.Item>
-                             <strong>Operativa:</strong> {renderBoolean(selectedAireDetails.condensadora_operativa)}
-                        </ListGroup.Item>
-                        {selectedAireDetails.condensadora_marca && (
-                            <ListGroup.Item>
-                                <FiTag className="me-2 text-secondary" /> <strong>Marca:</strong> {selectedAireDetails.condensadora_marca}
-                            </ListGroup.Item>
-                        )}
-                        {selectedAireDetails.condensadora_modelo && (
-                            <ListGroup.Item>
-                                <FiSettings className="me-2 text-secondary" /> <strong>Modelo:</strong> {selectedAireDetails.condensadora_modelo}
-                            </ListGroup.Item>
-                        )}
-                        {selectedAireDetails.condensadora_serial && (
-                            <ListGroup.Item>
-                                <FiTag className="me-2 text-muted" /> <strong>Serial:</strong> {selectedAireDetails.condensadora_serial}
-                            </ListGroup.Item>
-                        )}
-                         {selectedAireDetails.condensadora_codigo_inventario && (
-                            <ListGroup.Item>
-                                <FiTag className="me-2 text-muted" /> <strong>Cód. Inventario:</strong> {selectedAireDetails.condensadora_codigo_inventario}
-                            </ListGroup.Item>
-                        )}
-                         {selectedAireDetails.condensadora_ubicacion_instalacion && (
-                            <ListGroup.Item>
-                                <FiMapPin className="me-2 text-muted" /> <strong>Ubicación Específica:</strong> {selectedAireDetails.condensadora_ubicacion_instalacion}
-                            </ListGroup.Item>
-                        )}
+                        {/* Detalles Evaporadora */}
+                        <Col xs={12}><h6 className="text-primary mb-2">Unidad Evaporadora</h6></Col>
+                        {renderDetail('Operativa', selectedAireDetails.evaporadora_operativa)}
+                        {renderDetail('Marca', selectedAireDetails.evaporadora_marca)}
+                        {renderDetail('Modelo', selectedAireDetails.evaporadora_modelo)}
+                        {renderDetail('Serial', selectedAireDetails.evaporadora_serial)}
+                        {renderDetail('Cód. Inventario', selectedAireDetails.evaporadora_codigo_inventario)}
+                        {renderDetail('Ubic. Específica', selectedAireDetails.evaporadora_ubicacion_instalacion)}
 
-                        {/* Campos eliminados (ya no se muestran):
-                            - marca (general)
-                            - modelo (general)
-                            - numero_serie (general)
-                            - capacidad_btu
-                            - tipo_refrigerante
-                            - eficiencia_energetica
-                            - fecha_ultimo_mantenimiento
-                            - estado
-                        */}
-                    </ListGroup>
-                ) : (
-                    <Alert variant="secondary">No hay detalles para mostrar.</Alert>
+                        {/* Separador */}
+                         <Col xs={12}><hr className="my-3" /></Col>
+
+                        {/* Detalles Condensadora */}
+                        <Col xs={12}><h6 className="text-primary mb-2">Unidad Condensadora</h6></Col>
+                        {renderDetail('Operativa', selectedAireDetails.condensadora_operativa)}
+                        {renderDetail('Marca', selectedAireDetails.condensadora_marca)}
+                        {renderDetail('Modelo', selectedAireDetails.condensadora_modelo)}
+                        {renderDetail('Serial', selectedAireDetails.condensadora_serial)}
+                        {renderDetail('Cód. Inventario', selectedAireDetails.condensadora_codigo_inventario)}
+                        {renderDetail('Ubic. Específica', selectedAireDetails.condensadora_ubicacion_instalacion)}
+                    </Row>
+                )}
+                {/* Mensaje si no hay detalles (por si acaso) */}
+                {!selectedAireDetails && !loadingDetails && !viewError && (
+                     <p className="text-center text-muted">No hay detalles para mostrar.</p>
                 )}
             </Modal.Body>
             <Modal.Footer>
+                {/* Botón para cerrar el modal */}
                 <Button variant="secondary" onClick={onHide}>
                     Cerrar
                 </Button>

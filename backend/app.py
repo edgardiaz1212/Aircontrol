@@ -348,10 +348,10 @@ def add_aire():
     condensadora_codigo_inventario = data.get('condensadora_codigo_inventario', '')
     condensadora_ubicacion_instalacion = data.get('condensadora_ubicacion_instalacion', '')
     
-    if not (nombre and ubicacion and fecha_instalacion and tipo):
-        return jsonify({'success': False, 'mensaje': 'Nombre, ubicación, fecha de instalación y tipo son requeridos'})
-    
-    try: # Añadir manejo de excepciones
+    if not (nombre and ubicacion and fecha_instalacion): # Simplificado, ajusta si 'tipo' es realmente requerido
+        return jsonify({'success': False, 'mensaje': 'Nombre, ubicación y fecha de instalación son requeridos'}), 400
+
+    try:
         aire_id = data_manager.agregar_aire(
             nombre=nombre,
             ubicacion=ubicacion,
@@ -410,14 +410,17 @@ def add_aire():
                 return jsonify({'success': False, 'mensaje': 'Error interno del servidor al recuperar el aire recién creado'}), 500
            
         else:
-            # Si data_manager.agregar_aire devolvió None/False (falló la creación)
-            # Podría ser un error del servidor (500) o un conflicto (409) si manejas duplicados
-            return jsonify({'success': False, 'mensaje': 'Error al agregar el aire acondicionado'}), 500
+             # Esto no debería pasar si agregar_aire devolvió un ID válido
+             print(f"ERROR CRÍTICO: Aire con ID {aire_id} creado pero no recuperado.", file=sys.stderr)
+             return jsonify({'success': False, 'mensaje': 'Error interno del servidor al recuperar el aire recién creado'}), 500
 
+    except ValueError as ve: # Captura el error de duplicado
+        return jsonify({'success': False, 'mensaje': str(ve)}), 409 # 409 Conflict
+    except ConnectionError as ce: # Captura error de BD
+         return jsonify({'success': False, 'mensaje': str(ce)}), 500 # 500 Internal Server Error
     except Exception as e:
-        # Capturar cualquier excepción inesperada durante el proceso
         print(f"Error inesperado en add_aire: {e}", file=sys.stderr)
-        traceback.print_exc() # Imprime el stack trace completo en la consola del servidor
+        traceback.print_exc()
         return jsonify({'success': False, 'mensaje': 'Error interno del servidor al procesar la solicitud'}), 500
 
 @aircontrol_bp.route('/api/aires/<int:aire_id>', methods=['PUT'])
@@ -449,31 +452,52 @@ def update_aire(aire_id):
     if not (nombre and ubicacion and fecha_instalacion and tipo):
         return jsonify({'success': False, 'mensaje': 'Nombre, ubicación, fecha de instalación y tipo son requeridos'})
     
-    actualizado = data_manager.actualizar_aire(
-        aire_id=aire_id,
-        nombre=nombre,
-        ubicacion=ubicacion,
-        fecha_instalacion=fecha_instalacion,
-        tipo=tipo,
-        toneladas=toneladas,
-        evaporadora_operativa=evaporadora_operativa,
-        evaporadora_marca=evaporadora_marca,
-        evaporadora_modelo=evaporadora_modelo,
-        evaporadora_serial=evaporadora_serial,
-        evaporadora_codigo_inventario=evaporadora_codigo_inventario,
-        evaporadora_ubicacion_instalacion=evaporadora_ubicacion_instalacion,
-        condensadora_operativa=condensadora_operativa,
-        condensadora_marca=condensadora_marca,
-        condensadora_modelo=condensadora_modelo,
-        condensadora_serial=condensadora_serial,
-        condensadora_codigo_inventario=condensadora_codigo_inventario,
-        condensadora_ubicacion_instalacion=condensadora_ubicacion_instalacion
-    )
-    
-    if actualizado:
-        return jsonify({'success': True, 'mensaje': 'Aire acondicionado actualizado exitosamente'})
-    else:
-        return jsonify({'success': False, 'mensaje': 'Error al actualizar el aire acondicionado'})
+    try:
+        actualizado = data_manager.actualizar_aire(
+            aire_id=aire_id,
+            # ... (pasar todos los argumentos) ...
+        )
+        if actualizado:
+            # Devolver el objeto actualizado (opcional pero recomendado)
+            aire_obj_actualizado = data_manager.obtener_aire_por_id(aire_id)
+            if aire_obj_actualizado:
+                 aire_dict = { # ... construir aire_dict ...
+                    'id': aire_obj_actualizado.id,
+                    'nombre': aire_obj_actualizado.nombre,
+                    'ubicacion': aire_obj_actualizado.ubicacion,
+                    'fecha_instalacion': aire_obj_actualizado.fecha_instalacion.strftime('%Y-%m-%d') if aire_obj_actualizado.fecha_instalacion else None, # Formatear fecha
+                    'tipo': aire_obj_actualizado.tipo,
+                    'toneladas': float(aire_obj_actualizado.toneladas) if aire_obj_actualizado.toneladas is not None else None,
+                    'evaporadora_operativa': bool(aire_obj_actualizado.evaporadora_operativa),
+                    'evaporadora_marca': aire_obj_actualizado.evaporadora_marca,
+                    'evaporadora_modelo': aire_obj_actualizado.evaporadora_modelo,
+                    'evaporadora_serial': aire_obj_actualizado.evaporadora_serial,
+                    'evaporadora_codigo_inventario': aire_obj_actualizado.evaporadora_codigo_inventario,
+                    'evaporadora_ubicacion_instalacion': aire_obj_actualizado.evaporadora_ubicacion_instalacion,
+                    'condensadora_operativa': bool(aire_obj_actualizado.condensadora_operativa),
+                    'condensadora_marca': aire_obj_actualizado.condensadora_marca,
+                    'condensadora_modelo': aire_obj_actualizado.condensadora_modelo,
+                    'condensadora_serial': aire_obj_actualizado.condensadora_serial,
+                    'condensadora_codigo_inventario': aire_obj_actualizado.condensadora_codigo_inventario,
+                    'condensadora_ubicacion_instalacion': aire_obj_actualizado.condensadora_ubicacion_instalacion,
+                 }
+                 return jsonify({'success': True, 'mensaje': 'Aire acondicionado actualizado exitosamente', 'data': aire_dict}), 200
+            else:
+                 # Si no se encontró después de actualizar (raro)
+                 return jsonify({'success': False, 'mensaje': 'Aire no encontrado después de la actualización'}), 404
+        else:
+             # Si actualizar_aire devolvió False (probablemente no encontró el ID inicial)
+             return jsonify({'success': False, 'mensaje': 'Aire acondicionado no encontrado para actualizar'}), 404
+
+    except ValueError as ve: # Captura el error de duplicado
+        return jsonify({'success': False, 'mensaje': str(ve)}), 409 # 409 Conflict
+    except ConnectionError as ce: # Captura error de BD
+         return jsonify({'success': False, 'mensaje': str(ce)}), 500 # 500 Internal Server Error
+    except Exception as e:
+        print(f"Error inesperado en update_aire {aire_id}: {e}", file=sys.stderr)
+        traceback.print_exc()
+        return jsonify({'success': False, 'mensaje': 'Error interno del servidor al actualizar el aire'}), 500
+
 
 @aircontrol_bp.route('/api/aires/<int:aire_id>', methods=['DELETE'])
 @jwt_required()

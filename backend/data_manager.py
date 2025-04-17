@@ -162,7 +162,18 @@ class DataManager:
             session.commit() # Intentar guardar en la BD
 
             return nuevo_aire.id # Devolver ID si el commit fue exitoso
-
+      # --- CAPTURAR ERROR DE INTEGRIDAD ---
+        except IntegrityError as e:
+            session.rollback()
+            print(f"Error de integridad al agregar aire (¿duplicado?): {e}", file=sys.stderr)
+            # Podrías analizar e.orig para dar un mensaje más específico si es posible
+            raise ValueError("Error: Ya existe un registro con ese Serial o Código de Inventario.") # Lanzar error específico
+        # --- FIN CAPTURA ---
+        except SQLAlchemyError as e: # Capturar otros errores de BD
+            session.rollback()
+            print(f"!!! ERROR SQLAlchemy en data_manager.agregar_aire: {e}", file=sys.stderr)
+            traceback.print_exc()
+            raise ConnectionError("Error de base de datos al agregar el aire.") # Lanzar error genérico de BD
         except Exception as e:
             print(f"!!! ERROR en data_manager.agregar_aire: {e}", file=sys.stderr)
             traceback.print_exc() # Imprime el traceback completo en la consola del servidor
@@ -189,8 +200,11 @@ class DataManager:
         """
         aire = session.query(AireAcondicionado).filter(AireAcondicionado.id == aire_id).first()
         
-        if aire:
-            try:
+        if not aire:
+            print(f"Advertencia: Intento de actualizar aire no existente con ID {aire_id}")
+            return False # O lanzar un error si prefieres
+
+        try:
                 aire.nombre = nombre
                 aire.ubicacion = ubicacion
                 # from datetime import datetime
@@ -228,15 +242,21 @@ class DataManager:
                 session.commit()
                 return True
         
-            except Exception as e:
-                print(f"!!! ERROR al actualizar aire ID {aire_id} en data_manager: {e}", file=sys.stderr)
-                traceback.print_exc()
-                session.rollback() # Deshacer cambios si hubo error en el commit
-                return False
-        else:
-            # El aire con ese ID no fue encontrado
-            print(f"Advertencia: Intento de actualizar aire no existente con ID {aire_id}")
-            return False
+        except IntegrityError as e:
+            session.rollback()
+            print(f"Error de integridad al actualizar aire {aire_id} (¿duplicado?): {e}", file=sys.stderr)
+            raise ValueError("Error: Ya existe otro registro con ese Serial o Código de Inventario.") # Lanzar error específico
+        # --- FIN CAPTURA ---
+        except SQLAlchemyError as e: # Capturar otros errores de BD
+            session.rollback()
+            print(f"!!! ERROR SQLAlchemy al actualizar aire ID {aire_id}: {e}", file=sys.stderr)
+            traceback.print_exc()
+            raise ConnectionError("Error de base de datos al actualizar el aire.") # Lanzar error genérico de BD
+        except Exception as e:
+            session.rollback()
+            print(f"!!! ERROR inesperado al actualizar aire ID {aire_id}: {e}", file=sys.stderr)
+            traceback.print_exc()
+            raise e # Relanzar error inesperado
     
     def agregar_lectura(self, aire_id, fecha, temperatura, humedad):
         try:
