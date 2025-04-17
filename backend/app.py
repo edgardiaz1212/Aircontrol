@@ -909,10 +909,10 @@ def add_mantenimiento():
     if jwt_data.get('rol') not in ['admin', 'supervisor']:
         return jsonify({'success': False, 'mensaje': 'No tienes permiso para realizar esta acción'}), 403
 
-    # --- CAMBIO: Obtener ambos IDs del formulario ---
+
     aire_id_str = request.form.get('aire_id')
     otro_equipo_id_str = request.form.get('otro_equipo_id')
-    # --- FIN CAMBIO ---
+   
 
     tipo_mantenimiento = request.form.get('tipo_mantenimiento')
     descripcion = request.form.get('descripcion')

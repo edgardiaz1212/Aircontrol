@@ -9,19 +9,9 @@ import {
   FiImage,
 } from "react-icons/fi";
 import api from "../../services/api"; // Ajusta la ruta si es necesario
+import { Mantenimiento } from '../../pages/Mantenimientos';
 
-// Define la interfaz Mantenimiento aquí o impórtala si la tienes en un archivo separado
-interface Mantenimiento {
-  id: number;
-  aire_id: number;
-  fecha: string;
-  tipo_mantenimiento: string;
-  descripcion: string;
-  tecnico: string;
-  imagen?: string;
-  aire_nombre?: string;
-  ubicacion?: string;
-}
+
 
 interface MantenimientoViewModalProps {
   show: boolean;
@@ -44,88 +34,79 @@ const MantenimientoViewModal: React.FC<MantenimientoViewModalProps> = ({
     return null; // No renderizar nada si no hay mantenimiento seleccionado
   }
 
-  const fullImageUrl = mantenimiento.imagen?.startsWith("http")
-    ? mantenimiento.imagen
-    : `${api.defaults.baseURL}${mantenimiento.imagen}`;
+
+
+    const renderDetail = (label: string, value: React.ReactNode) => {
+      // ... (lógica de renderDetail sin cambios) ...
+       let displayValue: React.ReactNode = '-';
+      if (value !== null && value !== undefined && value !== '') {
+          if (typeof value === 'boolean') {
+              displayValue = (
+                  <span className={`badge bg-${value ? 'success' : 'danger'}`}>
+                      {value ? 'Sí' : 'No'}
+                  </span>
+              );
+          } else {
+              displayValue = value.toString();
+          }
+      }
+
+      return (
+          <React.Fragment key={label}> {/* Añadir key para elementos en loop implícito */}
+              <Col xs={5} sm={4} className="text-muted">{label}:</Col>
+              <Col xs={7} sm={8}>{displayValue}</Col>
+          </React.Fragment>
+      );
+  };
 
   return (
-    <Modal show={show} onHide={onHide} size="lg">
-      <Modal.Header closeButton>
-        <Modal.Title>
-          Detalles del Mantenimiento (ID: {mantenimiento.id})
-        </Modal.Title>
-      </Modal.Header>
-      <Modal.Body>
-        <Row>
-          <Col md={7}>
-            <ListGroup variant="flush">
-              <ListGroup.Item>
-                <FiTool className="me-2 text-primary" />{" "}
-                <strong>Aire Acondicionado:</strong> {mantenimiento.aire_nombre}
-              </ListGroup.Item>
-              <ListGroup.Item>
-                <FiMapPin className="me-2 text-secondary" />{" "}
-                <strong>Ubicación:</strong> {mantenimiento.ubicacion}
-              </ListGroup.Item>
-              <ListGroup.Item>
-                <FiCalendar className="me-2 text-success" />{" "}
-                <strong>Fecha y Hora:</strong>{" "}
-                {formatearFechaHora(mantenimiento.fecha)}
-              </ListGroup.Item>
-              <ListGroup.Item>
-                <FiInfo className="me-2" /> <strong>Tipo:</strong>{" "}
-                <Badge bg={getBadgeColor(mantenimiento.tipo_mantenimiento)}>
-                  {mantenimiento.tipo_mantenimiento}
-                </Badge>
-              </ListGroup.Item>
-              <ListGroup.Item>
-                <FiUser className="me-2 text-info" />{" "}
-                <strong>Técnico:</strong> {mantenimiento.tecnico}
-              </ListGroup.Item>
-              <ListGroup.Item>
-                <strong>Descripción:</strong>
-                <p style={{ whiteSpace: "pre-wrap", marginTop: "0.5rem" }}>
-                  {mantenimiento.descripcion}
-                </p>
-              </ListGroup.Item>
-            </ListGroup>
-          </Col>
-          <Col md={5}>
-            <strong>Imagen:</strong>
-            {mantenimiento.imagen ? (
-              <div className="mt-2 text-center">
-                <Image
-                  src={fullImageUrl}
-                  thumbnail
-                  fluid
-                  style={{ maxHeight: "300px", cursor: "pointer" }}
-                  onClick={() => onShowImagen(mantenimiento.imagen)}
-                  title="Haz clic para ampliar la imagen"
-                />
-                <Button
-                  variant="link"
-                  size="sm"
-                  className="mt-2"
-                  onClick={() => onShowImagen(mantenimiento.imagen)}
-                >
-                  <FiImage className="me-1" /> Ver Imagen Completa
-                </Button>
-              </div>
-            ) : (
-              <p className="text-muted mt-2">
-                No hay imagen registrada para este mantenimiento.
-              </p>
-            )}
-          </Col>
-        </Row>
-      </Modal.Body>
-      <Modal.Footer>
-        <Button variant="secondary" onClick={onHide}>
-          Cerrar
-        </Button>
-        {/* Puedes añadir un botón de editar aquí si lo necesitas, pasando la función como prop */}
-      </Modal.Footer>
-    </Modal>
+      <Modal show={show} onHide={onHide} size="lg" centered>
+          <Modal.Header closeButton>
+              <Modal.Title>Detalles del Mantenimiento</Modal.Title>
+          </Modal.Header>
+          <Modal.Body>
+              {/* Quitar Alerta de error y Spinner si ya no se manejan aquí */}
+              {/* {viewError && <Alert variant="danger">{viewError}</Alert>} */}
+              {/* {loadingDetails && (...)} */}
+
+              {mantenimiento ? ( // Verifica si hay un mantenimiento seleccionado
+                  <Row className="g-3">
+                      {renderDetail('ID', mantenimiento.id)}
+                      {renderDetail('Fecha', formatearFechaHora(mantenimiento.fecha))}
+                      {/* Mostrar info del equipo unificada */}
+                      {renderDetail('Equipo', mantenimiento.equipo_nombre)}
+                      {renderDetail('Ubicación Equipo', mantenimiento.equipo_ubicacion)}
+                      {renderDetail('Tipo Equipo', mantenimiento.equipo_tipo)}
+                      {/* Opcional: Mostrar IDs si es útil */}
+                      {/* {renderDetail('Aire ID', mantenimiento.aire_id)} */}
+                      {/* {renderDetail('Otro Equipo ID', mantenimiento.otro_equipo_id)} */}
+                      {renderDetail('Tipo Mantenimiento', (
+                          <span className={`badge bg-${getBadgeColor(mantenimiento.tipo_mantenimiento)}`}>
+                              {mantenimiento.tipo_mantenimiento}
+                          </span>
+                      ))}
+                      {renderDetail('Técnico', mantenimiento.tecnico)}
+                      {renderDetail('Descripción', mantenimiento.descripcion)}
+                      {renderDetail('Tiene Imagen', mantenimiento.tiene_imagen)}
+                      {/* Botón para ver imagen si tiene */}
+                      {mantenimiento.tiene_imagen && (
+                           <Col xs={12} className="mt-3 text-center">
+                              <Button variant="outline-secondary" size="sm" onClick={() => onShowImagen(mantenimiento.id.toString())}>
+                                  Ver Imagen Adjunta
+                              </Button>
+                          </Col>
+                      )}
+                  </Row>
+              ) : (
+                  <p>No hay detalles para mostrar.</p> // Mensaje si no hay mantenimiento
+              )}
+          </Modal.Body>
+          <Modal.Footer>
+              <Button variant="secondary" onClick={onHide}>
+                  Cerrar
+              </Button>
+          </Modal.Footer>
+      </Modal>
   );
 };
 

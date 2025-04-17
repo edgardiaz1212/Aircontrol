@@ -1,34 +1,28 @@
+// src/components/Mantenimientos/MantenimientosTable.tsx
 import React from "react";
-import { Table, Button, Badge, Spinner } from "react-bootstrap";
+import { Table, Button, Badge, Spinner, Tooltip, OverlayTrigger } from "react-bootstrap"; // Added Tooltip, OverlayTrigger
 import {
   FiTrash2,
   FiImage,
   FiCalendar,
   FiUser,
-  FiTool,
-  FiInfo, // Added for the explicit view button
+  FiTool, // Keep FiTool or use FiTag for Type
+  FiInfo,
+  FiPackage, // Icon for Equipment Name
+  FiMapPin,  // Icon for Equipment Location
 } from "react-icons/fi";
 
-// Reutiliza o importa la interfaz Mantenimiento
-interface Mantenimiento {
-  id: number;
-  aire_id: number;
-  fecha: string;
-  tipo_mantenimiento: string;
-  descripcion: string;
-  tecnico: string;
-  imagen?: string;
-  tiene_imagen: boolean;
-  aire_nombre?: string;
-  ubicacion?: string;
-}
+// --- IMPORTAR TIPOS DESDE EL PADRE ---
+// Asegúrate que la ruta relativa sea correcta desde este archivo
+// hasta src/pages/Mantenimientos.tsx
+import { Mantenimiento } from '../../pages/Mantenimientos';
 
 interface MantenimientosTableProps {
   mantenimientos: Mantenimiento[];
   loading: boolean;
   canEdit: boolean;
   onShowViewModal: (mantenimiento: Mantenimiento) => void;
-  onShowImagen: (id: number) => void
+  onShowImagen: (id: number) => void;
   onDelete: (id: number) => void;
   getBadgeColor: (tipo: string | undefined) => string;
   formatearFechaHora: (fechaStr: string | undefined) => string;
@@ -53,92 +47,107 @@ const MantenimientosTable: React.FC<MantenimientosTableProps> = ({
     );
   }
 
-  if (mantenimientos.length === 0) {
-    // El mensaje de "No hay registros" y el botón de agregar se manejarán en el componente padre
-    // para tener acceso a la función handleAdd y al filtro actual.
-    // Aquí podríamos retornar un mensaje simple o null.
-    return null;
-    // Opcionalmente, un mensaje simple:
-    // return <p className="text-center text-muted p-4">No se encontraron registros.</p>;
-  }
+  // El estado vacío se maneja en el componente padre
+
+  // Helper para renderizar Tooltips en botones
+  const renderTooltip = (props: any, text: string) => (
+    <Tooltip id={`button-tooltip-${text.replace(/\s+/g, '-')}`} {...props}>
+      {text}
+    </Tooltip>
+  );
 
   return (
     <div className="table-responsive">
       <Table hover className="mantenimientos-table">
         <thead>
           <tr>
-            <th>ID</th>
-            <th>Aire Acondicionado</th>
-            <th>Ubicación</th>
-            <th>Fecha</th>
-            <th>Tipo</th>
-            <th>Técnico</th>
+            {/* Columnas ajustadas según lo solicitado */}
+            <th><FiUser className="me-1" />Técnico</th>
+            <th><FiPackage className="me-1" />Equipo</th>
+            <th><FiMapPin className="me-1" />Ubicación Equipo</th>
+            <th><FiCalendar className="me-1" />Fecha</th>
+            <th><FiTool className="me-1" />Tipo</th>
             <th className="text-end">Acciones</th>
           </tr>
         </thead>
         <tbody>
-          {mantenimientos.map((mantenimiento) => (
+          {mantenimientos.map((mantenimiento: Mantenimiento) => (
             <tr
               key={mantenimiento.id}
-              onClick={() => onShowViewModal(mantenimiento)}
+              onClick={() => onShowViewModal(mantenimiento)} // Clic en fila abre detalles
               style={{ cursor: "pointer" }}
+              title="Ver detalles del mantenimiento" // Tooltip para la fila
             >
-              <td>{mantenimiento.id}</td>
-              <td>{mantenimiento.aire_nombre}</td>
-              <td>{mantenimiento.ubicacion}</td>
+              {/* Celdas de datos ajustadas */}
               <td>
-                <FiCalendar className="me-1" />
-                {formatearFechaHora(mantenimiento.fecha).split(" ")[0]}{" "}
-                {/* Show only date part */}
+                {mantenimiento.tecnico || '-'}
               </td>
               <td>
-                <Badge bg={getBadgeColor(mantenimiento.tipo_mantenimiento)}>
+                {mantenimiento.equipo_nombre || 'N/A'}
+              </td>
+              <td>
+                {mantenimiento.equipo_ubicacion || 'N/A'}
+              </td>
+              <td>
+                {/* Mostrar solo la fecha por defecto para limpieza */}
+                {formatearFechaHora(mantenimiento.fecha).split(" ")[0]}
+              </td>
+              <td>
+                <Badge bg={getBadgeColor(mantenimiento.tipo_mantenimiento)} pill> {/* Usar pill para badges */}
                   {mantenimiento.tipo_mantenimiento}
                 </Badge>
               </td>
-              <td>
-                <FiUser className="me-1" />
-                {mantenimiento.tecnico}
-              </td>
-              
-              <td className="text-end">
-                {/* Botón explícito para ver detalles (opcional, ya que el clic en fila funciona) */}
-                <Button
-                    variant="outline-secondary"
-                    size="sm"
-                    className="me-2"
-                    onClick={(e) => {
-                        e.stopPropagation(); // Prevent row click
-                        onShowViewModal(mantenimiento);
-                    }}
-                    title="Ver Detalles"
+              <td className="text-end" onClick={(e) => e.stopPropagation()}> {/* Evitar que clic en botones active clic en fila */}
+
+                {/* Botón explícito para ver detalles */}
+                 <OverlayTrigger
+                    placement="top"
+                    delay={{ show: 250, hide: 400 }}
+                    overlay={(props) => renderTooltip(props, "Ver Detalles")}
                  >
-                    <FiInfo />
-                 </Button>
+                    <Button
+                        variant="outline-secondary"
+                        size="sm"
+                        className="me-2"
+                        onClick={() => onShowViewModal(mantenimiento)}
+                    >
+                        <FiInfo />
+                    </Button>
+                 </OverlayTrigger>
+
+                 {/* Botón para ver imagen */}
                  {mantenimiento.tiene_imagen && (
-                  <Button
-                    variant="outline-info"
-                    size="sm"
-                    className="ms-2"
-                    // Pasar el ID del mantenimiento al hacer clic
-                    onClick={() => onShowImagen(mantenimiento.id)}
-                    title="Ver imagen adjunta"
+                  <OverlayTrigger
+                    placement="top"
+                    delay={{ show: 250, hide: 400 }}
+                    overlay={(props) => renderTooltip(props, "Ver Imagen")}
                   >
-                    <FiImage />
-                  </Button>
+                    <Button
+                        variant="outline-info"
+                        size="sm"
+                        className="me-2"
+                        onClick={() => onShowImagen(mantenimiento.id)}
+                    >
+                        <FiImage />
+                    </Button>
+                  </OverlayTrigger>
                 )}
+
+                {/* Botón para eliminar */}
                 {canEdit && (
-                  <Button
-                    variant="outline-danger"
-                    size="sm"
-                    onClick={(e) => {
-                      e.stopPropagation(); // Prevent row click
-                      onDelete(mantenimiento.id);
-                    }}
-                    title="Eliminar Mantenimiento"
+                  <OverlayTrigger
+                    placement="top"
+                    delay={{ show: 250, hide: 400 }}
+                    overlay={(props) => renderTooltip(props, "Eliminar")}
                   >
-                    <FiTrash2 />
-                  </Button>
+                    <Button
+                        variant="outline-danger"
+                        size="sm"
+                        onClick={() => onDelete(mantenimiento.id)}
+                    >
+                        <FiTrash2 />
+                    </Button>
+                  </OverlayTrigger>
                 )}
               </td>
             </tr>
