@@ -6,7 +6,7 @@ Flask-Cors
 
 # JSON Web Token Authentication
 Flask-JWT-Extended 
-
+requests 
 # ORM (Object-Relational Mapper)
 SQLAlchemy
 

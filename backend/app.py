@@ -16,7 +16,7 @@ else:
 
 from database import init_db, session, Usuario, Lectura, AireAcondicionado # Asegúrate que session y Lectura estén aquí
 from data_manager import DataManager
-from flask import Flask, jsonify, request, session
+from flask import Flask, jsonify, request, session, Blueprint
 from flask_cors import CORS
 from flask_jwt_extended import (
     JWTManager, 
@@ -53,6 +53,9 @@ CORS(app,
 
 # Inicializar JWT
 jwt = JWTManager(app)
+
+# Crear un Blueprint
+aircontrol_bp = Blueprint('aircontrol', __name__)
 
 # Configurar manejadores de errores para JWT
 @jwt.invalid_token_loader
@@ -92,12 +95,12 @@ data_manager = DataManager()
 data_manager.crear_admin_por_defecto()
 
 # Ruta de inicio
-@app.route('/')
+@aircontrol_bp.route('/')
 def index():
     return jsonify({"mensaje": "API de Monitoreo AC funcionando"})
 
 # Rutas de autenticación
-@app.route('/api/auth/login', methods=['POST'])
+@aircontrol_bp.route('/api/auth/login', methods=['POST'])
 def login():
     data = request.get_json()
     username = data.get('username', '')
@@ -134,7 +137,7 @@ def login():
     
     return jsonify({'success': False, 'mensaje': 'Credenciales inválidas'})
 
-@app.route('/api/auth/register', methods=['POST'])
+@aircontrol_bp.route('/api/auth/register', methods=['POST'])
 def register():
     data = request.get_json()
     nombre = data.get('nombre', '')
@@ -179,7 +182,7 @@ def register():
     else:
         return jsonify({'success': False, 'mensaje': 'El email o nombre de usuario ya están en uso'})
 
-@app.route('/api/admin/users', methods=['POST']) # Nueva ruta específica para admin crear usuarios
+@aircontrol_bp.route('/api/admin/users', methods=['POST']) # Nueva ruta específica para admin crear usuarios
 @jwt_required()
 def admin_create_user():
     # 1. Verificar que el usuario actual es administrador
@@ -222,7 +225,7 @@ def admin_create_user():
         # El DataManager devuelve None si el email/username ya existen
         return jsonify({'success': False, 'mensaje': 'Error al crear el usuario. El email o nombre de usuario ya podrían estar en uso.'}), 409
 
-@app.route('/api/auth/user', methods=['GET'])
+@aircontrol_bp.route('/api/auth/user', methods=['GET'])
 @jwt_required()
 def get_user():
     jwt_data = get_jwt()
@@ -237,7 +240,7 @@ def get_user():
     return jsonify(current_user)
 
 # Rutas para aires acondicionados
-@app.route('/api/aires', methods=['GET'])
+@aircontrol_bp.route('/api/aires', methods=['GET'])
 @jwt_required()
 def get_aires():
     aires_df = data_manager.obtener_aires()
@@ -272,7 +275,7 @@ def get_aires():
     
     return jsonify(aires)
 
-@app.route('/api/aires/<int:aire_id>', methods=['GET'])
+@aircontrol_bp.route('/api/aires/<int:aire_id>', methods=['GET'])
 @jwt_required()
 def get_aire_by_id(aire_id):
     """
@@ -319,7 +322,7 @@ def get_aire_by_id(aire_id):
         # Devuelve 500 Internal Server Error en caso de otros errores
         return jsonify({'success': False, 'mensaje': 'Error interno del servidor al obtener el aire acondicionado'}), 500
 
-@app.route('/api/aires', methods=['POST'])
+@aircontrol_bp.route('/api/aires', methods=['POST'])
 @jwt_required()
 def add_aire():
     jwt_data = get_jwt()
@@ -373,7 +376,7 @@ def add_aire():
     else:
         return jsonify({'success': False, 'mensaje': 'Error al agregar el aire acondicionado'})
 
-@app.route('/api/aires/<int:aire_id>', methods=['PUT'])
+@aircontrol_bp.route('/api/aires/<int:aire_id>', methods=['PUT'])
 @jwt_required()
 def update_aire(aire_id):
     jwt_data = get_jwt()
@@ -428,7 +431,7 @@ def update_aire(aire_id):
     else:
         return jsonify({'success': False, 'mensaje': 'Error al actualizar el aire acondicionado'})
 
-@app.route('/api/aires/<int:aire_id>', methods=['DELETE'])
+@aircontrol_bp.route('/api/aires/<int:aire_id>', methods=['DELETE'])
 @jwt_required()
 def delete_aire(aire_id):
     jwt_data = get_jwt()
@@ -439,7 +442,7 @@ def delete_aire(aire_id):
     return jsonify({'success': True, 'mensaje': 'Aire acondicionado eliminado exitosamente'})
 
 # Rutas para lecturas
-@app.route('/api/lecturas', methods=['GET'])
+@aircontrol_bp.route('/api/lecturas', methods=['GET'])
 @jwt_required()
 def get_lecturas():
     aire_id = request.args.get('aire_id', type=int)
@@ -464,7 +467,7 @@ def get_lecturas():
     
     return jsonify({'success': True, 'data': lecturas})
 
-@app.route('/api/lecturas', methods=['POST'])
+@aircontrol_bp.route('/api/lecturas', methods=['POST'])
 @jwt_required()
 def add_lectura():
     data = request.get_json()
@@ -549,7 +552,7 @@ def add_lectura():
         # Devolver 500 Internal Server Error si data_manager falló
         return jsonify({'success': False, 'mensaje': 'Error interno al registrar la lectura'}), 500
 
-@app.route('/api/lecturas/<int:lectura_id>', methods=['DELETE'])
+@aircontrol_bp.route('/api/lecturas/<int:lectura_id>', methods=['DELETE'])
 @jwt_required()
 def delete_lectura(lectura_id):
     jwt_data = get_jwt()
@@ -564,19 +567,19 @@ def delete_lectura(lectura_id):
         return jsonify({'success': False, 'mensaje': 'Error al eliminar la lectura'})
 
 # Rutas para estadísticas
-@app.route('/api/estadisticas/general', methods=['GET'])
+@aircontrol_bp.route('/api/estadisticas/general', methods=['GET'])
 @jwt_required()
 def get_estadisticas_general():
     stats = data_manager.obtener_estadisticas_generales()
     return jsonify(stats)
 
-@app.route('/api/estadisticas/aire/<int:aire_id>', methods=['GET'])
+@aircontrol_bp.route('/api/estadisticas/aire/<int:aire_id>', methods=['GET'])
 @jwt_required()
 def get_estadisticas_aire(aire_id):
     stats = data_manager.obtener_estadisticas_por_aire(aire_id)
     return jsonify(stats)
 
-@app.route('/api/estadisticas/ubicacion', methods=['GET'])
+@aircontrol_bp.route('/api/estadisticas/ubicacion', methods=['GET'])
 @jwt_required()
 def get_estadisticas_ubicacion():
     ubicacion = request.args.get('ubicacion')
@@ -595,7 +598,7 @@ def get_estadisticas_ubicacion():
     return jsonify(stats)
 
 # Rutas para mantenimientos
-@app.route('/api/mantenimientos', methods=['GET'])
+@aircontrol_bp.route('/api/mantenimientos', methods=['GET'])
 @jwt_required()
 def get_mantenimientos():
     aire_id = request.args.get('aire_id', type=int)
@@ -623,7 +626,7 @@ def get_mantenimientos():
     
     return jsonify(mantenimientos)
 
-@app.route('/api/mantenimientos', methods=['POST'])
+@aircontrol_bp.route('/api/mantenimientos', methods=['POST'])
 @jwt_required()
 def add_mantenimiento():
     jwt_data = get_jwt()
@@ -690,7 +693,7 @@ def add_mantenimiento():
         return jsonify({'success': False, 'mensaje': 'Error al registrar el mantenimiento'}), 500
 
 
-@app.route('/api/mantenimientos/<int:mantenimiento_id>', methods=['DELETE'])
+@aircontrol_bp.route('/api/mantenimientos/<int:mantenimiento_id>', methods=['DELETE'])
 @jwt_required()
 def delete_mantenimiento(mantenimiento_id):
     jwt_data = get_jwt()
@@ -704,7 +707,7 @@ def delete_mantenimiento(mantenimiento_id):
     else:
         return jsonify({'success': False, 'mensaje': 'Error al eliminar el mantenimiento'})
 
-@app.route('/api/mantenimientos/<int:mantenimiento_id>/imagen', methods=['GET'])
+@aircontrol_bp.route('/api/mantenimientos/<int:mantenimiento_id>/imagen', methods=['GET'])
 @jwt_required()
 def get_mantenimiento_imagen(mantenimiento_id):
     try:
@@ -724,7 +727,7 @@ def get_mantenimiento_imagen(mantenimiento_id):
 
 # Rutas para umbrales
 # app.py - get_umbrales (Corregido)
-@app.route('/api/umbrales', methods=['GET'])
+@aircontrol_bp.route('/api/umbrales', methods=['GET'])
 @jwt_required()
 def get_umbrales():
     aire_id = request.args.get('aire_id', type=int)
@@ -772,7 +775,7 @@ def get_umbrales():
     return jsonify({'success': True, 'data': umbrales})
 
 
-@app.route('/api/umbrales', methods=['POST'])
+@aircontrol_bp.route('/api/umbrales', methods=['POST'])
 @jwt_required()
 def add_umbral():
     jwt_data = get_jwt()
@@ -820,7 +823,7 @@ def add_umbral():
     else:
         return jsonify({'success': False, 'mensaje': 'Error al configurar el umbral'})
 
-@app.route('/api/umbrales/<int:umbral_id>', methods=['PUT'])
+@aircontrol_bp.route('/api/umbrales/<int:umbral_id>', methods=['PUT'])
 @jwt_required()
 def update_umbral(umbral_id):
     jwt_data = get_jwt()
@@ -862,7 +865,7 @@ def update_umbral(umbral_id):
     else:
         return jsonify({'success': False, 'mensaje': 'Error al actualizar el umbral'})
 
-@app.route('/api/umbrales/<int:umbral_id>', methods=['DELETE'])
+@aircontrol_bp.route('/api/umbrales/<int:umbral_id>', methods=['DELETE'])
 @jwt_required()
 def delete_umbral(umbral_id):
     jwt_data = get_jwt()
@@ -877,7 +880,7 @@ def delete_umbral(umbral_id):
         return jsonify({'success': False, 'mensaje': 'Error al eliminar el umbral'})
 
 # Rutas para usuarios
-@app.route('/api/usuarios', methods=['GET'])
+@aircontrol_bp.route('/api/usuarios', methods=['GET'])
 @jwt_required()
 def get_usuarios():
     jwt_data = get_jwt()
@@ -910,7 +913,7 @@ def get_usuarios():
     
     return jsonify(usuarios)
 
-@app.route('/api/usuarios/<int:usuario_id>', methods=['PUT'])
+@aircontrol_bp.route('/api/usuarios/<int:usuario_id>', methods=['PUT'])
 @jwt_required()
 def update_usuario(usuario_id):
     try:
@@ -956,7 +959,7 @@ def update_usuario(usuario_id):
         return jsonify({'success': False, 'mensaje': 'Error interno del servidor'}), 500
 
 # --- NUEVA RUTA PARA EL RESUMEN DEL DASHBOARD ---
-@app.route('/api/dashboard/resumen', methods=['GET'])
+@aircontrol_bp.route('/api/dashboard/resumen', methods=['GET'])
 @jwt_required() # Asegúrate de que el usuario esté autenticado para ver el dashboard
 def get_dashboard_resumen():
     try:
@@ -1004,7 +1007,8 @@ def get_dashboard_resumen():
         # Considera devolver un error más específico si es posible
         return jsonify({'success': False, 'mensaje': 'Error interno al obtener el resumen del dashboard'}), 500
 
-
+# Registrar el Blueprint con el prefijo /aircontrol
+app.register_blueprint(aircontrol_bp, url_prefix='/aircontrol')
 
 # Iniciar servidor
 if __name__ == '__main__':

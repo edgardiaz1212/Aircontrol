@@ -36,7 +36,7 @@ const App: React.FC = () => {
       
       // Si hay un token pero estamos en la página de login o register, redirigir al dashboard
       if (token && ['/login', '/register', '/'].includes(location.pathname)) {
-        navigate('/dashboard');
+        navigate('/aircontrol/dashboard');
       }
       
       setLoading(false);
