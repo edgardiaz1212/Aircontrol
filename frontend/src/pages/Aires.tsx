@@ -134,7 +134,7 @@ const Aires: React.FC = () => {
         // Si Array.isArray dio false, loguear el error
         console.error("fetchAiresList: Array.isArray es FALSE. Unexpected response format for /aires (expected array):", responseData);
         setAiresList([]); // Establecer lista vacía
-        setError("Formato de respuesta inesperado del servidor al listar aires.");
+        setError("Formato de respuesta inesperado del servidor al listar aires. Asegúrate de que el backend esté devolviendo un array.");
       }
 
     } catch (error: any) {

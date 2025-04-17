@@ -248,7 +248,12 @@ def get_aires():
     if aires_df.empty:
         return jsonify([])
     
-    aires = []
+    aires = []  # Initialize the list to hold air conditioning units
+    # Check for expected columns in the DataFrame
+    expected_columns = ['id', 'nombre', 'ubicacion', 'fecha_instalacion', 'tipo', 'toneladas', 'evaporadora_operativa', 'evaporadora_marca', 'evaporadora_modelo', 'evaporadora_serial', 'evaporadora_codigo_inventario', 'evaporadora_ubicacion_instalacion', 'condensadora_operativa', 'condensadora_marca', 'condensadora_modelo', 'condensadora_serial', 'condensadora_codigo_inventario', 'condensadora_ubicacion_instalacion']
+    for column in expected_columns:
+        if column not in aires_df.columns:
+            return jsonify({'success': False, 'mensaje': f'Error: Falta la columna esperada: {column}'}), 500
     for _, row in aires_df.iterrows():
         aires.append({
             'id': int(row['id']),
@@ -256,7 +261,7 @@ def get_aires():
             'ubicacion': row['ubicacion'],
             'fecha_instalacion': row['fecha_instalacion'],
             'tipo': row['tipo'],
-            'toneladas': float(row['toneladas']) if row['toneladas'] else None,
+            'toneladas': float(row['toneladas']) if pd.notna(row['toneladas']) else None,
             'evaporadora_operativa': bool(row['evaporadora_operativa']),
             'evaporadora_marca': row['evaporadora_marca'],
             'evaporadora_modelo': row['evaporadora_modelo'],
