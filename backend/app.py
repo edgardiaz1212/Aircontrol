@@ -14,7 +14,7 @@ else:
     print(f"app.py: DATABASE_URL cargada correctamente desde {dotenv_path}")
 
 
-from database import init_db, session, Usuario, Lectura, AireAcondicionado # Asegúrate que session y Lectura estén aquí
+from database import init_db, session, Usuario, Lectura, AireAcondicionado, Mantenimiento, OtroEquipo
 from data_manager import DataManager
 from flask import Flask, jsonify, request, session, Blueprint
 from flask_cors import CORS
@@ -351,30 +351,74 @@ def add_aire():
     if not (nombre and ubicacion and fecha_instalacion and tipo):
         return jsonify({'success': False, 'mensaje': 'Nombre, ubicación, fecha de instalación y tipo son requeridos'})
     
-    aire_id = data_manager.agregar_aire(
-        nombre=nombre,
-        ubicacion=ubicacion,
-        fecha_instalacion=fecha_instalacion,
-        tipo=tipo,
-        toneladas=toneladas,
-        evaporadora_operativa=evaporadora_operativa,
-        evaporadora_marca=evaporadora_marca,
-        evaporadora_modelo=evaporadora_modelo,
-        evaporadora_serial=evaporadora_serial,
-        evaporadora_codigo_inventario=evaporadora_codigo_inventario,
-        evaporadora_ubicacion_instalacion=evaporadora_ubicacion_instalacion,
-        condensadora_operativa=condensadora_operativa,
-        condensadora_marca=condensadora_marca,
-        condensadora_modelo=condensadora_modelo,
-        condensadora_serial=condensadora_serial,
-        condensadora_codigo_inventario=condensadora_codigo_inventario,
-        condensadora_ubicacion_instalacion=condensadora_ubicacion_instalacion
-    )
-    
-    if aire_id:
-        return jsonify({'success': True, 'mensaje': 'Aire acondicionado agregado exitosamente', 'id': aire_id})
-    else:
-        return jsonify({'success': False, 'mensaje': 'Error al agregar el aire acondicionado'})
+    try: # Añadir manejo de excepciones
+        aire_id = data_manager.agregar_aire(
+            nombre=nombre,
+            ubicacion=ubicacion,
+            fecha_instalacion=fecha_instalacion,
+            tipo=tipo,
+            toneladas=data.get('toneladas'), # Asegúrate que DataManager maneje None o 0
+            evaporadora_operativa=data.get('evaporadora_operativa', True),
+            evaporadora_marca=data.get('evaporadora_marca', ''),
+            evaporadora_modelo=data.get('evaporadora_modelo', ''),
+            evaporadora_serial=data.get('evaporadora_serial', ''),
+            evaporadora_codigo_inventario=data.get('evaporadora_codigo_inventario', ''),
+            evaporadora_ubicacion_instalacion=data.get('evaporadora_ubicacion_instalacion', ''),
+            condensadora_operativa=data.get('condensadora_operativa', True),
+            condensadora_marca=data.get('condensadora_marca', ''),
+            condensadora_modelo=data.get('condensadora_modelo', ''),
+            condensadora_serial=data.get('condensadora_serial', ''),
+            condensadora_codigo_inventario=data.get('condensadora_codigo_inventario', ''),
+            condensadora_ubicacion_instalacion=data.get('condensadora_ubicacion_instalacion', '')
+        )
+        
+        if aire_id:
+                        # Buscar el objeto recién creado para devolverlo completo
+            nuevo_aire_obj = data_manager.obtener_aire_por_id(aire_id) # Necesitas este método en DataManager si no existe
+            
+            if nuevo_aire_obj:
+                # Convertir el objeto SQLAlchemy a un diccionario JSON serializable
+                # (Similar a como lo haces en get_aire_by_id)
+                aire_dict = {
+                    'id': nuevo_aire_obj.id,
+                    'nombre': nuevo_aire_obj.nombre,
+                    'ubicacion': nuevo_aire_obj.ubicacion,
+                    'fecha_instalacion': nuevo_aire_obj.fecha_instalacion, # Asegúrate que el formato sea el esperado por el frontend
+                    'tipo': nuevo_aire_obj.tipo,
+                    'toneladas': float(nuevo_aire_obj.toneladas) if nuevo_aire_obj.toneladas is not None else None,
+                    'evaporadora_operativa': bool(nuevo_aire_obj.evaporadora_operativa),
+                    'evaporadora_marca': nuevo_aire_obj.evaporadora_marca,
+                    'evaporadora_modelo': nuevo_aire_obj.evaporadora_modelo,
+                    'evaporadora_serial': nuevo_aire_obj.evaporadora_serial,
+                    'evaporadora_codigo_inventario': nuevo_aire_obj.evaporadora_codigo_inventario,
+                    'evaporadora_ubicacion_instalacion': nuevo_aire_obj.evaporadora_ubicacion_instalacion,
+                    'condensadora_operativa': bool(nuevo_aire_obj.condensadora_operativa),
+                    'condensadora_marca': nuevo_aire_obj.condensadora_marca,
+                    'condensadora_modelo': nuevo_aire_obj.condensadora_modelo,
+                    'condensadora_serial': nuevo_aire_obj.condensadora_serial,
+                    'condensadora_codigo_inventario': nuevo_aire_obj.condensadora_codigo_inventario,
+                    'condensadora_ubicacion_instalacion': nuevo_aire_obj.condensadora_ubicacion_instalacion,
+                    # Añade cualquier otro campo que necesite el frontend
+                }
+                # Devolver el objeto completo, idealmente dentro de una clave 'data'
+                # y con el código de estado 201 Created
+                return jsonify({'success': True, 'mensaje': 'Aire acondicionado agregado exitosamente', 'data': aire_dict}), 201
+            else:
+                # Esto no debería pasar si aire_id es válido, pero por si acaso
+                print(f"ERROR CRÍTICO: Aire con ID {aire_id} se creó pero no se pudo recuperar inmediatamente.", file=sys.stderr)
+                # Devolver un error 500 Internal Server Error
+                return jsonify({'success': False, 'mensaje': 'Error interno del servidor al recuperar el aire recién creado'}), 500
+           
+        else:
+            # Si data_manager.agregar_aire devolvió None/False (falló la creación)
+            # Podría ser un error del servidor (500) o un conflicto (409) si manejas duplicados
+            return jsonify({'success': False, 'mensaje': 'Error al agregar el aire acondicionado'}), 500
+
+    except Exception as e:
+        # Capturar cualquier excepción inesperada durante el proceso
+        print(f"Error inesperado en add_aire: {e}", file=sys.stderr)
+        traceback.print_exc() # Imprime el stack trace completo en la consola del servidor
+        return jsonify({'success': False, 'mensaje': 'Error interno del servidor al procesar la solicitud'}), 500
 
 @aircontrol_bp.route('/api/aires/<int:aire_id>', methods=['PUT'])
 @jwt_required()
@@ -440,6 +484,231 @@ def delete_aire(aire_id):
     
     data_manager.eliminar_aire(aire_id)
     return jsonify({'success': True, 'mensaje': 'Aire acondicionado eliminado exitosamente'})
+
+@aircontrol_bp.route('/api/otros-equipos', methods=['GET'])
+@jwt_required()
+def get_otros_equipos():
+    """Obtiene la lista de otros equipos."""
+    try:
+        equipos_df = data_manager.obtener_otros_equipos()
+        if equipos_df.empty:
+            return jsonify([]) # Devuelve lista vacía si no hay datos
+
+        # Convertir DataFrame a lista de diccionarios para JSON
+        # Asegúrate de que los tipos sean serializables (fechas a string, etc.)
+        # El DataManager ya debería haber formateado las fechas y booleanos
+        equipos_list = equipos_df.to_dict(orient='records')
+
+        # Conversión explícita por si acaso (especialmente IDs y floats)
+        for equipo in equipos_list:
+            equipo['id'] = int(equipo['id'])
+            # Añade otras conversiones si son necesarias (ej. floats)
+
+        return jsonify(equipos_list)
+    except Exception as e:
+        print(f"Error en get_otros_equipos: {e}", file=sys.stderr)
+        traceback.print_exc()
+        return jsonify({'success': False, 'mensaje': 'Error interno al obtener otros equipos'}), 500
+
+@aircontrol_bp.route('/api/otros-equipos/<int:equipo_id>', methods=['GET'])
+@jwt_required()
+def get_otro_equipo_by_id(equipo_id):
+    """Obtiene los detalles de un equipo específico por su ID."""
+    try:
+        equipo_obj = data_manager.obtener_otro_equipo_por_id(equipo_id)
+        if equipo_obj:
+            # Convertir objeto SQLAlchemy a diccionario serializable
+            equipo_dict = {
+                'id': equipo_obj.id,
+                'nombre': equipo_obj.nombre,
+                'tipo': equipo_obj.tipo,
+                'ubicacion': equipo_obj.ubicacion,
+                'marca': equipo_obj.marca,
+                'modelo': equipo_obj.modelo,
+                'serial': equipo_obj.serial,
+                'codigo_inventario': equipo_obj.codigo_inventario,
+                'fecha_instalacion': equipo_obj.fecha_instalacion.strftime('%Y-%m-%d') if equipo_obj.fecha_instalacion else None,
+                'estado_operativo': bool(equipo_obj.estado_operativo),
+                'notas': equipo_obj.notas,
+                'fecha_creacion': equipo_obj.fecha_creacion.strftime('%Y-%m-%d %H:%M:%S'),
+                'ultima_modificacion': equipo_obj.ultima_modificacion.strftime('%Y-%m-%d %H:%M:%S')
+            }
+            return jsonify(equipo_dict)
+        else:
+            return jsonify({'success': False, 'mensaje': 'Equipo no encontrado'}), 404
+    except Exception as e:
+        print(f"Error en get_otro_equipo_by_id para ID {equipo_id}: {e}", file=sys.stderr)
+        traceback.print_exc()
+        return jsonify({'success': False, 'mensaje': 'Error interno al obtener el equipo'}), 500
+
+@aircontrol_bp.route('/api/otros-equipos', methods=['POST'])
+@jwt_required()
+def add_otro_equipo():
+    """Agrega un nuevo equipo diverso."""
+    jwt_data = get_jwt()
+    if jwt_data.get('rol') not in ['admin', 'supervisor']:
+        return jsonify({'success': False, 'mensaje': 'No tienes permiso para realizar esta acción'}), 403
+
+    data = request.get_json()
+    if not data:
+        return jsonify({'success': False, 'mensaje': 'No se recibieron datos JSON'}), 400
+
+    # Campos requeridos y opcionales
+    nombre = data.get('nombre')
+    tipo = data.get('tipo') # Ej: 'Motogenerador', 'UPS', 'PDU'
+
+    if not nombre or not tipo:
+        return jsonify({'success': False, 'mensaje': 'Nombre y Tipo son requeridos'}), 400
+
+    # Validar tipo (opcional pero recomendado)
+    allowed_types = ['Motogenerador', 'UPS', 'PDU', 'Otro'] # Define tus tipos permitidos
+    if tipo not in allowed_types:
+         return jsonify({'success': False, 'mensaje': f"Tipo '{tipo}' no es válido. Permitidos: {', '.join(allowed_types)}"}), 400
+
+    # Obtener otros campos (usar .get con default None o valor apropiado)
+    ubicacion = data.get('ubicacion')
+    marca = data.get('marca')
+    modelo = data.get('modelo')
+    serial = data.get('serial')
+    codigo_inventario = data.get('codigo_inventario')
+    fecha_instalacion = data.get('fecha_instalacion') # Espera 'YYYY-MM-DD' o None/null
+    estado_operativo = data.get('estado_operativo', True) # Default a True si no se envía
+    notas = data.get('notas')
+
+    try:
+        equipo_id = data_manager.agregar_otro_equipo(
+            nombre=nombre,
+            tipo=tipo,
+            ubicacion=ubicacion,
+            marca=marca,
+            modelo=modelo,
+            serial=serial,
+            codigo_inventario=codigo_inventario,
+            fecha_instalacion=fecha_instalacion,
+            estado_operativo=estado_operativo,
+            notas=notas
+        )
+
+        if equipo_id:
+            # Devolver el objeto recién creado (Buena práctica REST)
+            nuevo_equipo_obj = data_manager.obtener_otro_equipo_por_id(equipo_id)
+            if nuevo_equipo_obj:
+                 equipo_dict = {
+                    'id': nuevo_equipo_obj.id,
+                    'nombre': nuevo_equipo_obj.nombre,
+                    'tipo': nuevo_equipo_obj.tipo,
+                    'ubicacion': nuevo_equipo_obj.ubicacion,
+                    'marca': nuevo_equipo_obj.marca,
+                    'modelo': nuevo_equipo_obj.modelo,
+                    'serial': nuevo_equipo_obj.serial,
+                    'codigo_inventario': nuevo_equipo_obj.codigo_inventario,
+                    'fecha_instalacion': nuevo_equipo_obj.fecha_instalacion.strftime('%Y-%m-%d') if nuevo_equipo_obj.fecha_instalacion else None,
+                    'estado_operativo': bool(nuevo_equipo_obj.estado_operativo),
+                    'notas': nuevo_equipo_obj.notas
+                 }
+                 return jsonify({'success': True, 'mensaje': 'Equipo agregado exitosamente', 'data': equipo_dict}), 201
+            else:
+                 # Fallback si no se pudo recuperar inmediatamente
+                 print(f"ADVERTENCIA: Equipo con ID {equipo_id} creado pero no recuperado.", file=sys.stderr)
+                 return jsonify({'success': True, 'mensaje': 'Equipo agregado, pero no se pudo recuperar el objeto completo.', 'id': equipo_id}), 201
+
+        else:
+            # Error probable por duplicado (serial/inventario) u otro error de BD
+             return jsonify({'success': False, 'mensaje': 'Error al agregar el equipo. Verifique que el serial o código de inventario no estén duplicados.'}), 409 # 409 Conflict
+
+    except Exception as e:
+        print(f"Error inesperado en add_otro_equipo: {e}", file=sys.stderr)
+        traceback.print_exc()
+        return jsonify({'success': False, 'mensaje': 'Error interno del servidor al procesar la solicitud'}), 500
+
+@aircontrol_bp.route('/api/otros-equipos/<int:equipo_id>', methods=['PUT'])
+@jwt_required()
+def update_otro_equipo(equipo_id):
+    """Actualiza un equipo diverso existente."""
+    jwt_data = get_jwt()
+    if jwt_data.get('rol') not in ['admin', 'supervisor']:
+        return jsonify({'success': False, 'mensaje': 'No tienes permiso para realizar esta acción'}), 403
+
+    data = request.get_json()
+    if not data:
+        return jsonify({'success': False, 'mensaje': 'No se recibieron datos JSON'}), 400
+
+    # Validar campos requeridos para la actualización (al menos nombre y tipo)
+    nombre = data.get('nombre')
+    tipo = data.get('tipo')
+    if not nombre or not tipo:
+        return jsonify({'success': False, 'mensaje': 'Nombre y Tipo son requeridos para la actualización'}), 400
+
+    # Validar tipo (opcional pero recomendado)
+    allowed_types = ['Motogenerador', 'UPS', 'PDU', 'Otro']
+    if tipo not in allowed_types:
+         return jsonify({'success': False, 'mensaje': f"Tipo '{tipo}' no es válido. Permitidos: {', '.join(allowed_types)}"}), 400
+
+    # Crear diccionario con los datos a actualizar (solo los presentes en el request)
+    update_data = {}
+    allowed_keys = ['nombre', 'tipo', 'ubicacion', 'marca', 'modelo', 'serial',
+                    'codigo_inventario', 'fecha_instalacion', 'estado_operativo', 'notas']
+    for key in allowed_keys:
+        if key in data:
+            update_data[key] = data[key]
+
+    try:
+        actualizado = data_manager.actualizar_otro_equipo(equipo_id, **update_data)
+
+        if actualizado:
+             # Devolver el objeto actualizado
+            equipo_obj_actualizado = data_manager.obtener_otro_equipo_por_id(equipo_id)
+            if equipo_obj_actualizado:
+                 equipo_dict = {
+                    'id': equipo_obj_actualizado.id,
+                    'nombre': equipo_obj_actualizado.nombre,
+                    'tipo': equipo_obj_actualizado.tipo,
+                    'ubicacion': equipo_obj_actualizado.ubicacion,
+                    'marca': equipo_obj_actualizado.marca,
+                    'modelo': equipo_obj_actualizado.modelo,
+                    'serial': equipo_obj_actualizado.serial,
+                    'codigo_inventario': equipo_obj_actualizado.codigo_inventario,
+                    'fecha_instalacion': equipo_obj_actualizado.fecha_instalacion.strftime('%Y-%m-%d') if equipo_obj_actualizado.fecha_instalacion else None,
+                    'estado_operativo': bool(equipo_obj_actualizado.estado_operativo),
+                    'notas': equipo_obj_actualizado.notas
+                 }
+                 return jsonify({'success': True, 'mensaje': 'Equipo actualizado exitosamente', 'data': equipo_dict})
+            else:
+                 return jsonify({'success': True, 'mensaje': 'Equipo actualizado, pero no se pudo recuperar el objeto completo.'})
+        else:
+            # Podría ser que el equipo no exista (404) o error de integridad (409)
+            equipo_existente = data_manager.obtener_otro_equipo_por_id(equipo_id)
+            if not equipo_existente:
+                 return jsonify({'success': False, 'mensaje': 'Equipo no encontrado para actualizar'}), 404
+            else:
+                 return jsonify({'success': False, 'mensaje': 'Error al actualizar el equipo (posible serial/código inventario duplicado)'}), 409
+
+    except Exception as e:
+        print(f"Error inesperado en update_otro_equipo {equipo_id}: {e}", file=sys.stderr)
+        traceback.print_exc()
+        return jsonify({'success': False, 'mensaje': 'Error interno del servidor al actualizar el equipo'}), 500
+
+@aircontrol_bp.route('/api/otros-equipos/<int:equipo_id>', methods=['DELETE'])
+@jwt_required()
+def delete_otro_equipo(equipo_id):
+    """Elimina un equipo diverso."""
+    jwt_data = get_jwt()
+    if jwt_data.get('rol') not in ['admin', 'supervisor']:
+        return jsonify({'success': False, 'mensaje': 'No tienes permiso para realizar esta acción'}), 403
+
+    try:
+        eliminado = data_manager.eliminar_otro_equipo(equipo_id)
+        if eliminado:
+            return jsonify({'success': True, 'mensaje': 'Equipo eliminado exitosamente'})
+        else:
+            # Probablemente no se encontró el equipo
+            return jsonify({'success': False, 'mensaje': 'Equipo no encontrado para eliminar'}), 404
+    except Exception as e:
+        print(f"Error inesperado en delete_otro_equipo {equipo_id}: {e}", file=sys.stderr)
+        traceback.print_exc()
+        return jsonify({'success': False, 'mensaje': 'Error interno del servidor al eliminar el equipo'}), 500
+
+
 
 # Rutas para lecturas
 @aircontrol_bp.route('/api/lecturas', methods=['GET'])
@@ -601,29 +870,36 @@ def get_estadisticas_ubicacion():
 @aircontrol_bp.route('/api/mantenimientos', methods=['GET'])
 @jwt_required()
 def get_mantenimientos():
+    # --- CAMBIO: Aceptar ambos IDs como filtro ---
     aire_id = request.args.get('aire_id', type=int)
-    mantenimientos_df = data_manager.obtener_mantenimientos(aire_id)
-    
+    otro_equipo_id = request.args.get('otro_equipo_id', type=int)
+    # --- FIN CAMBIO ---
+
+    # Pasar ambos filtros al DataManager (él decidirá cuál usar si ambos están presentes, o ninguno)
+    mantenimientos_df = data_manager.obtener_mantenimientos(aire_id=aire_id, otro_equipo_id=otro_equipo_id)
+
     if mantenimientos_df.empty:
         return jsonify([])
-    
+
     mantenimientos = []
     for _, row in mantenimientos_df.iterrows():
         mantenimiento = {
             'id': int(row['id']),
-            'aire_id': int(row['aire_id']),
-            'fecha': row['fecha'].strftime('%Y-%m-%d %H:%M:%S'),
+            # --- CAMBIO: Incluir ambos IDs y la info unificada ---
+            'aire_id': int(row['aire_id']) if pd.notna(row['aire_id']) and row['aire_id'] != 0 else None,
+            'otro_equipo_id': int(row['otro_equipo_id']) if pd.notna(row['otro_equipo_id']) and row['otro_equipo_id'] != 0 else None,
+            'equipo_nombre': row['equipo_nombre'],
+            'equipo_ubicacion': row['equipo_ubicacion'],
+            'equipo_tipo': row['equipo_tipo'],
+            # --- FIN CAMBIO ---
+            'fecha': row['fecha'].strftime('%Y-%m-%d %H:%M:%S'), # Formatear fecha aquí
             'tipo_mantenimiento': row['tipo_mantenimiento'],
             'descripcion': row['descripcion'],
-            'tecnico': row['tecnico']
+            'tecnico': row['tecnico'],
+            'tiene_imagen': bool(row['tiene_imagen']) # Asegurar booleano
         }
-        
-        # Obtener imagen base64 si está disponible
-        if 'imagen_datos' in row and row['imagen_datos']:
-            mantenimiento['imagen'] = row['imagen_base64'] if 'imagen_base64' in row else None
-        
         mantenimientos.append(mantenimiento)
-    
+
     return jsonify(mantenimientos)
 
 @aircontrol_bp.route('/api/mantenimientos', methods=['POST'])
@@ -632,23 +908,47 @@ def add_mantenimiento():
     jwt_data = get_jwt()
     if jwt_data.get('rol') not in ['admin', 'supervisor']:
         return jsonify({'success': False, 'mensaje': 'No tienes permiso para realizar esta acción'}), 403
-    
-    # Obtener datos del formulario
-    aire_id = request.form.get('aire_id', type=int)
+
+    # --- CAMBIO: Obtener ambos IDs del formulario ---
+    aire_id_str = request.form.get('aire_id')
+    otro_equipo_id_str = request.form.get('otro_equipo_id')
+    # --- FIN CAMBIO ---
+
     tipo_mantenimiento = request.form.get('tipo_mantenimiento')
     descripcion = request.form.get('descripcion')
     tecnico = request.form.get('tecnico')
-    
-    # Verificar datos requeridos
-    if not (aire_id and tipo_mantenimiento and descripcion and tecnico):
-        return jsonify({'success': False, 'mensaje': 'Todos los campos son requeridos'})
-    
-    # Obtener archivo de imagen si está presente
     imagen_file = request.files.get('imagen_file')
-    
-    # Agregar mantenimiento
+
+    # Validar que se proporcionó uno y solo uno de los IDs
+    aire_id = None
+    otro_equipo_id = None
+    target_provided = False
+    if aire_id_str:
+        try:
+            aire_id = int(aire_id_str)
+            target_provided = True
+        except ValueError:
+            return jsonify({'success': False, 'mensaje': 'aire_id debe ser un número entero'}), 400
+    if otro_equipo_id_str:
+        if target_provided: # Ya se proporcionó aire_id
+             return jsonify({'success': False, 'mensaje': 'Proporcione aire_id O otro_equipo_id, no ambos'}), 400
+        try:
+            otro_equipo_id = int(otro_equipo_id_str)
+            target_provided = True
+        except ValueError:
+            return jsonify({'success': False, 'mensaje': 'otro_equipo_id debe ser un número entero'}), 400
+
+    if not target_provided:
+        return jsonify({'success': False, 'mensaje': 'Debe proporcionar aire_id o otro_equipo_id'}), 400
+
+    # Verificar otros campos requeridos
+    if not (tipo_mantenimiento and descripcion and tecnico):
+        return jsonify({'success': False, 'mensaje': 'Tipo de mantenimiento, descripción y técnico son requeridos'}), 400
+
+    # Agregar mantenimiento usando el DataManager actualizado
     mantenimiento_id = data_manager.agregar_mantenimiento(
-        aire_id=aire_id,
+        aire_id=aire_id, # Pasa None si no se proporcionó
+        otro_equipo_id=otro_equipo_id, # Pasa None si no se proporcionó
         tipo_mantenimiento=tipo_mantenimiento,
         descripcion=descripcion,
         tecnico=tecnico,
@@ -656,39 +956,48 @@ def add_mantenimiento():
     )
 
     if mantenimiento_id:
-        # --- INICIO CAMBIO ---
-        # Buscar el objeto recién creado para devolverlo completo
+        # Devolver el objeto completo (similar a como lo tenías, pero adaptado)
         try:
             nuevo_mantenimiento_obj = data_manager.obtener_mantenimiento_por_id(mantenimiento_id)
             if nuevo_mantenimiento_obj:
-                # Obtener info del aire asociado
-                aire_info = data_manager.obtener_aire_por_id(nuevo_mantenimiento_obj.aire_id) # Necesitas este método en DataManager
-                aire_nombre = aire_info.nombre if aire_info else "Desconocido"
-                ubicacion = aire_info.ubicacion if aire_info else "Desconocida"
+                # Obtener info del equipo asociado (aire u otro)
+                equipo_nombre = "Desconocido"
+                equipo_ubicacion = "Desconocida"
+                equipo_tipo = "Desconocido"
 
-                # Construir el diccionario de respuesta completo
+                if nuevo_mantenimiento_obj.aire_id:
+                    aire_info = data_manager.obtener_aire_por_id(nuevo_mantenimiento_obj.aire_id)
+                    if aire_info:
+                        equipo_nombre = aire_info.nombre
+                        equipo_ubicacion = aire_info.ubicacion
+                        equipo_tipo = "Aire Acondicionado"
+                elif nuevo_mantenimiento_obj.otro_equipo_id:
+                    otro_equipo_info = data_manager.obtener_otro_equipo_por_id(nuevo_mantenimiento_obj.otro_equipo_id)
+                    if otro_equipo_info:
+                        equipo_nombre = otro_equipo_info.nombre
+                        equipo_ubicacion = otro_equipo_info.ubicacion
+                        equipo_tipo = otro_equipo_info.tipo
+
                 respuesta_data = {
                     'id': nuevo_mantenimiento_obj.id,
                     'aire_id': nuevo_mantenimiento_obj.aire_id,
+                    'otro_equipo_id': nuevo_mantenimiento_obj.otro_equipo_id,
                     'fecha': nuevo_mantenimiento_obj.fecha.strftime('%Y-%m-%d %H:%M:%S'),
                     'tipo_mantenimiento': nuevo_mantenimiento_obj.tipo_mantenimiento,
                     'descripcion': nuevo_mantenimiento_obj.descripcion,
                     'tecnico': nuevo_mantenimiento_obj.tecnico,
                     'tiene_imagen': nuevo_mantenimiento_obj.imagen_datos is not None,
-                    'aire_nombre': aire_nombre,
-                    'ubicacion': ubicacion
+                    'equipo_nombre': equipo_nombre,
+                    'equipo_ubicacion': equipo_ubicacion,
+                    'equipo_tipo': equipo_tipo
                 }
-                # Devolver el objeto completo dentro de 'data'
-                return jsonify({'success': True, 'mensaje': 'Mantenimiento registrado exitosamente', 'data': respuesta_data}), 201 # 201 Created
+                return jsonify({'success': True, 'mensaje': 'Mantenimiento registrado exitosamente', 'data': respuesta_data}), 201
             else:
-                # Si no se encontró por alguna razón (poco probable)
                 return jsonify({'success': False, 'mensaje': 'Mantenimiento guardado pero no se pudo recuperar'}), 500
-
         except Exception as e_fetch:
             print(f"Error al recuperar mantenimiento recién guardado {mantenimiento_id}: {e_fetch}")
-            # Devolver éxito parcial si se guardó pero no se pudo recuperar
+            traceback.print_exc()
             return jsonify({'success': True, 'mensaje': 'Mantenimiento registrado, pero hubo un error al recuperar detalles.', 'id': mantenimiento_id}), 200
-        # --- FIN CAMBIO ---
     else:
         return jsonify({'success': False, 'mensaje': 'Error al registrar el mantenimiento'}), 500
 
@@ -958,53 +1267,49 @@ def update_usuario(usuario_id):
         print(f"Error in update_usuario: {str(e)}")
         return jsonify({'success': False, 'mensaje': 'Error interno del servidor'}), 500
 
-# --- NUEVA RUTA PARA EL RESUMEN DEL DASHBOARD ---
+# ---  RUTA PARA EL RESUMEN DEL DASHBOARD ---
 @aircontrol_bp.route('/api/dashboard/resumen', methods=['GET'])
-@jwt_required() # Asegúrate de que el usuario esté autenticado para ver el dashboard
+@jwt_required()
 def get_dashboard_resumen():
     try:
-        # 1. Obtener los totales (necesitarás métodos en DataManager para esto)
-        total_aires = data_manager.contar_aires() # Ejemplo, crea este método si no existe
-        total_lecturas = data_manager.contar_lecturas() # Ejemplo
-        total_mantenimientos = data_manager.contar_mantenimientos() # Ejemplo
-        
-        # 2. Obtener el número de alertas (esto puede ser más complejo)
-        #    Podrías tener una tabla de alertas o calcularlas basado en umbrales
-        #    Por ahora, un valor placeholder:
-        alertas_activas = data_manager.contar_alertas_activas() # Ejemplo
-
-        # 3. Obtener las últimas N lecturas (necesitarás un método en DataManager)
-        #    Este método debería devolver las lecturas más recientes, incluyendo
-        #    el nombre y ubicación del aire asociado.
-        ultimas_lecturas_df = data_manager.obtener_ultimas_lecturas_con_info_aire(limite=5) # Ejemplo, limita a 5
+        total_aires = data_manager.contar_aires()
+        # --- CAMBIO: Añadir conteo de otros equipos ---
+        total_otros_equipos = data_manager.contar_otros_equipos()
+        # --- FIN CAMBIO ---
+        total_lecturas = data_manager.contar_lecturas()
+        total_mantenimientos = data_manager.contar_mantenimientos() # Este método ya cuenta todos
+        alertas_activas = data_manager.contar_alertas_activas()
+        ultimas_lecturas_df = data_manager.obtener_ultimas_lecturas_con_info_aire(limite=5)
 
         ultimas_lecturas_lista = []
+        # ... (código para procesar ultimas_lecturas_df sin cambios) ...
         if not ultimas_lecturas_df.empty:
-            for _, row in ultimas_lecturas_df.iterrows():
-                ultimas_lecturas_lista.append({
-                    'id': int(row['id']), # ID de la lectura
-                    'aire_id': int(row['aire_id']),
-                    'nombre': row['nombre_aire'], # Asegúrate que tu método devuelva esto
-                    'ubicacion': row['ubicacion_aire'], # Asegúrate que tu método devuelva esto
-                    'temperatura': float(row['temperatura']),
-                    'humedad': float(row['humedad']),
-                    'fecha': row['fecha'].strftime('%Y-%m-%d %H:%M:%S') # Formatea la fecha como string
-                })
+             for _, row in ultimas_lecturas_df.iterrows():
+                 ultimas_lecturas_lista.append({
+                     'id': int(row['id']),
+                     'aire_id': int(row['aire_id']),
+                     'nombre': row['nombre_aire'],
+                     'ubicacion': row['ubicacion_aire'],
+                     'temperatura': float(row['temperatura']),
+                     'humedad': float(row['humedad']),
+                     'fecha': row['fecha'].strftime('%Y-%m-%d %H:%M:%S')
+                 })
 
-        # 4. Construir la respuesta
+
         resumen_data = {
             'totalAires': total_aires,
+            # --- CAMBIO: Incluir total de otros equipos ---
+            'totalOtrosEquipos': total_otros_equipos,
+            # --- FIN CAMBIO ---
             'totalLecturas': total_lecturas,
             'totalMantenimientos': total_mantenimientos,
             'alertas': alertas_activas,
             'ultimasLecturas': ultimas_lecturas_lista
         }
-
         return jsonify(resumen_data)
-
     except Exception as e:
         print(f"Error al generar resumen del dashboard: {e}")
-        # Considera devolver un error más específico si es posible
+        traceback.print_exc()
         return jsonify({'success': False, 'mensaje': 'Error interno al obtener el resumen del dashboard'}), 500
 
 # Registrar el Blueprint con el prefijo /aircontrol

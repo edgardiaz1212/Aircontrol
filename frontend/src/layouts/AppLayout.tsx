@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { Container, Nav, Navbar, Button, Dropdown } from 'react-bootstrap';
 import { useAppContext } from '../context/AppContext';
-import { FiMenu, FiUser, FiLogOut, FiSettings, FiHome, FiWind, FiList, FiBarChart2, FiTool, FiAlertCircle, FiUsers } from 'react-icons/fi';
+import { FiMenu, FiUser, FiLogOut, FiSettings, FiHome, FiWind, FiList, FiBarChart2, FiTool, FiAlertCircle, FiUsers, FiZap } from 'react-icons/fi';
 import madDataIcon from '../img/mad_data.png';
 import logo from '../img/CDHLogo.png' 
 import "../styles/app.css"
@@ -64,6 +64,13 @@ const AppLayout: React.FC = () => {
               {!sidebarCollapsed && <span className="ms-3">Estadísticas</span>}
             </div>
           </Nav.Link>
+          <Nav.Link onClick={() => navigate('/otros-equipos')} className="text-light">
+            <div className="d-flex align-items-center">
+            <FiZap  size={20} />
+              {!sidebarCollapsed && <span className="ms-3">Otros equipos</span>}
+            </div>
+          </Nav.Link>
+
 
           <Nav.Link onClick={() => navigate('/mantenimientos')} className="text-light">
             <div className="d-flex align-items-center">

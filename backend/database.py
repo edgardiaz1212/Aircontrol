@@ -1,9 +1,12 @@
 import os
 import base64
-from sqlalchemy import create_engine, Column, Integer, String, Float, DateTime, ForeignKey, Text, LargeBinary, Boolean, Date
+from sqlalchemy import create_engine, Column, Integer, String, Float, DateTime, ForeignKey, Text, LargeBinary, Boolean, Date, CheckConstraint 
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, relationship
 from datetime import datetime
+from alembic.config import Config
+from alembic import command
+
 
 # Obtener la URL de conexión desde las variables de entorno
 DATABASE_URL = os.environ.get('DATABASE_URL')
@@ -79,7 +82,9 @@ class Mantenimiento(Base):
     __tablename__ = 'mantenimientos'
     
     id = Column(Integer, primary_key=True)
-    aire_id = Column(Integer, ForeignKey('aires_acondicionados.id'))
+    aire_id = Column(Integer, ForeignKey('aires_acondicionados.id'), nullable=True)
+    otro_equipo_id = Column(Integer, ForeignKey('otros_equipos.id'), nullable=True)
+   
     fecha = Column(DateTime, nullable=False, default=datetime.now)
     tipo_mantenimiento = Column(String(100), nullable=False)
     descripcion = Column(Text)
@@ -90,9 +95,16 @@ class Mantenimiento(Base):
     
     # Relación con el aire acondicionado
     aire = relationship("AireAcondicionado", back_populates="mantenimientos")
+    otro_equipo = relationship("OtroEquipo", back_populates="mantenimientos")
+    __table_args__ = (
+        CheckConstraint('(aire_id IS NOT NULL AND otro_equipo_id IS NULL) OR (aire_id IS NULL AND otro_equipo_id IS NOT NULL)',
+                        name='chk_mantenimiento_target'),
+    )
     
     def __repr__(self):
-        return f"<Mantenimiento(id={self.id}, aire_id={self.aire_id}, fecha='{self.fecha}')>"
+        target_id = f"aire_id={self.aire_id}" if self.aire_id else f"otro_equipo_id={self.otro_equipo_id}"
+        return f"<Mantenimiento(id={self.id}, {target_id}, fecha='{self.fecha}')>"
+
     
     # Método para convertir la imagen a base64 para mostrar en el navegador
     def get_imagen_base64(self):
@@ -154,8 +166,29 @@ class Usuario(Base):
     def __repr__(self):
         return f"<Usuario(id={self.id}, username='{self.username}', rol='{self.rol}')>"
 
-from alembic.config import Config
-from alembic import command
+class OtroEquipo(Base):
+    __tablename__ = 'otros_equipos'
+
+    id = Column(Integer, primary_key=True)
+    nombre = Column(String(100), nullable=False, comment="Nombre descriptivo del equipo")
+    tipo = Column(String(50), nullable=False, comment="Tipo de equipo (Motogenerador, UPS, PDU, etc.)")
+    ubicacion = Column(String(200), nullable=True)
+    marca = Column(String(100), nullable=True)
+    modelo = Column(String(100), nullable=True)
+    serial = Column(String(100), nullable=True, unique=True)
+    codigo_inventario = Column(String(100), nullable=True, unique=True)
+    fecha_instalacion = Column(Date, nullable=True)
+    estado_operativo = Column(Boolean, nullable=False, default=True)
+    notas = Column(Text, nullable=True, comment="Información adicional relevante")
+    fecha_creacion = Column(DateTime, nullable=False, default=datetime.now)
+    ultima_modificacion = Column(DateTime, nullable=False, default=datetime.now, onupdate=datetime.now)
+
+    # Relación con los mantenimientos (Un equipo puede tener muchos mantenimientos)
+    mantenimientos = relationship("Mantenimiento", back_populates="otro_equipo", cascade="all, delete-orphan")
+
+    def __repr__(self):
+        return f"<OtroEquipo(id={self.id}, nombre='{self.nombre}', tipo='{self.tipo}')>"
+
 
 def run_migrations():
     """Run database migrations using Alembic"""

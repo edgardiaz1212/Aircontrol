@@ -19,6 +19,7 @@ import Mantenimientos from './pages/Mantenimientos';
 import Umbrales from './pages/Umbrales';
 import Usuarios from './pages/Usuarios';
 import NotFound from './pages/NotFound';
+import OtrosEquipos from './pages/OtrosEquipos';
 
 // Components
 import ProtectedRoute from './components/ProtectedRoute';
@@ -75,6 +76,7 @@ const App: React.FC = () => {
             <Route path="mantenimientos" element={<Mantenimientos />} />
             <Route path="umbrales" element={<Umbrales />} />
             <Route path="usuarios" element={<Usuarios />} />
+            <Route path="/otros-equipos" element={<OtrosEquipos />} />
           </Route>
         </Route>
 

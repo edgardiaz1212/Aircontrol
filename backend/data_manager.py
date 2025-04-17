@@ -3,11 +3,12 @@ import os
 import numpy as np
 import io
 from datetime import datetime
-from database import session, AireAcondicionado, Lectura, Mantenimiento, UmbralConfiguracion, Usuario, init_db
+from database import session, AireAcondicionado, Lectura, Mantenimiento, UmbralConfiguracion, Usuario, init_db , OtroEquipo
 from cryptography.fernet import Fernet
 import hashlib
 from sqlalchemy import func, distinct, desc
 from sqlalchemy.orm import aliased
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 import traceback
 import sys
 
@@ -106,7 +107,7 @@ class DataManager:
         ]
         
         return pd.DataFrame(aires_data)
-    
+                
     def obtener_lecturas(self):
         # Consultar todas las lecturas de la base de datos
         lecturas = session.query(Lectura).all()
@@ -521,108 +522,257 @@ class DataManager:
             traceback.print_exc() # Imprime el traceback completo en la consola del servidor
             return None # Devolver None en caso de error
     
-    def agregar_mantenimiento(self, aire_id, tipo_mantenimiento, descripcion, tecnico, imagen_file=None):
-        """
-        Agrega un nuevo registro de mantenimiento a la base de datos. Maneja errores.
+    def agregar_otro_equipo(self, nombre, tipo, ubicacion=None, marca=None, modelo=None, serial=None,
+                            codigo_inventario=None, fecha_instalacion=None, estado_operativo=True, notas=None):
+        """Agrega un nuevo equipo diverso a la base de datos."""
+        try:
+            # Convertir fecha si es string
+            if isinstance(fecha_instalacion, str):
+                try:
+                    fecha_instalacion = datetime.strptime(fecha_instalacion, '%Y-%m-%d').date()
+                except ValueError:
+                    print(f"Formato de fecha inválido para {fecha_instalacion}. Se guardará como None.", file=sys.stderr)
+                    fecha_instalacion = None
 
-        Args:
-            aire_id: ID del aire acondicionado
-            tipo_mantenimiento: Tipo de mantenimiento realizado
-            descripcion: Descripción detallada del mantenimiento
-            tecnico: Nombre del técnico que realizó el mantenimiento
-            imagen_file: Objeto FileStorage de Flask (opcional)
+            nuevo_equipo = OtroEquipo(
+                nombre=nombre,
+                tipo=tipo,
+                ubicacion=ubicacion,
+                marca=marca,
+                modelo=modelo,
+                serial=serial,
+                codigo_inventario=codigo_inventario,
+                fecha_instalacion=fecha_instalacion,
+                estado_operativo=estado_operativo,
+                notas=notas
+            )
+            session.add(nuevo_equipo)
+            session.commit()
+            print(f"OtroEquipo agregado: ID={nuevo_equipo.id}, Nombre={nombre}, Tipo={tipo}")
+            return nuevo_equipo.id
+        except IntegrityError as e:
+            session.rollback()
+            print(f"Error de integridad al agregar otro equipo (¿serial o código inventario duplicado?): {e}", file=sys.stderr)
+            return None
+        except SQLAlchemyError as e:
+            session.rollback()
+            print(f"Error de base de datos al agregar otro equipo: {e}", file=sys.stderr)
+            traceback.print_exc()
+            return None
+        except Exception as e:
+            session.rollback()
+            print(f"Error inesperado al agregar otro equipo: {e}", file=sys.stderr)
+            traceback.print_exc()
+            return None
 
-        Returns:
-            ID del nuevo mantenimiento registrado o None si ocurre un error.
-        """
-        print(f"Intentando agregar mantenimiento para aire_id: {aire_id}")
-        print(f"Archivo recibido: {imagen_file}")
+    def obtener_otros_equipos(self):
+        """Obtiene todos los equipos diversos."""
+        try:
+            query = session.query(OtroEquipo).order_by(OtroEquipo.nombre)
+            df = pd.read_sql(query.statement, session.bind)
+            # Convertir tipos para JSON si es necesario (fechas, booleanos)
+            if not df.empty:
+                 if 'fecha_instalacion' in df.columns:
+                     df['fecha_instalacion'] = pd.to_datetime(df['fecha_instalacion']).dt.strftime('%Y-%m-%d').fillna('')
+                 if 'estado_operativo' in df.columns:
+                     df['estado_operativo'] = df['estado_operativo'].astype(bool)
+            return df
+        except Exception as e:
+            print(f"Error al obtener otros equipos: {e}", file=sys.stderr)
+            return pd.DataFrame() # Devolver DataFrame vacío en caso de error
 
-        nuevo_mantenimiento = Mantenimiento(
-            aire_id=aire_id,
-            fecha=datetime.now(),
-            tipo_mantenimiento=tipo_mantenimiento,
-            descripcion=descripcion,
-            tecnico=tecnico
-        )
+    def obtener_otro_equipo_por_id(self, equipo_id):
+        """Obtiene un equipo diverso específico por su ID."""
+        try:
+            return session.query(OtroEquipo).get(equipo_id)
+        except Exception as e:
+            print(f"Error al obtener otro equipo por ID {equipo_id}: {e}", file=sys.stderr)
+            return None
+
+    def actualizar_otro_equipo(self, equipo_id, **kwargs):
+        """Actualiza los datos de un equipo diverso."""
+        try:
+            equipo = session.query(OtroEquipo).get(equipo_id)
+            if not equipo:
+                print(f"No se encontró OtroEquipo con ID {equipo_id} para actualizar.", file=sys.stderr)
+                return False
+
+            allowed_keys = ['nombre', 'tipo', 'ubicacion', 'marca', 'modelo', 'serial',
+                            'codigo_inventario', 'fecha_instalacion', 'estado_operativo', 'notas']
+
+            for key, value in kwargs.items():
+                if key in allowed_keys:
+                    # Convertir fecha si es string y es la llave correcta
+                    if key == 'fecha_instalacion' and isinstance(value, str):
+                         try:
+                             value = datetime.strptime(value, '%Y-%m-%d').date() if value else None
+                         except ValueError:
+                             print(f"Formato de fecha inválido para {key}: {value}. No se actualizará.", file=sys.stderr)
+                             continue # Saltar esta actualización
+                    # Convertir booleano si es necesario
+                    elif key == 'estado_operativo':
+                         value = bool(value)
+
+                    setattr(equipo, key, value)
+
+            equipo.ultima_modificacion = datetime.now() # Actualizar timestamp
+            session.commit()
+            print(f"OtroEquipo actualizado: ID={equipo_id}")
+            return True
+        except IntegrityError as e:
+            session.rollback()
+            print(f"Error de integridad al actualizar otro equipo {equipo_id} (¿serial o código inventario duplicado?): {e}", file=sys.stderr)
+            return False
+        except SQLAlchemyError as e:
+            session.rollback()
+            print(f"Error de base de datos al actualizar otro equipo {equipo_id}: {e}", file=sys.stderr)
+            traceback.print_exc()
+            return False
+        except Exception as e:
+            session.rollback()
+            print(f"Error inesperado al actualizar otro equipo {equipo_id}: {e}", file=sys.stderr)
+            traceback.print_exc()
+            return False
+
+    def eliminar_otro_equipo(self, equipo_id):
+        """Elimina un equipo diverso (y sus mantenimientos asociados por cascade)."""
+        try:
+            equipo = session.query(OtroEquipo).get(equipo_id)
+            if equipo:
+                session.delete(equipo)
+                session.commit()
+                print(f"OtroEquipo eliminado: ID={equipo_id}")
+                return True
+            else:
+                print(f"No se encontró OtroEquipo con ID {equipo_id} para eliminar.", file=sys.stderr)
+                return False
+        except SQLAlchemyError as e:
+            session.rollback()
+            print(f"Error de base de datos al eliminar otro equipo {equipo_id}: {e}", file=sys.stderr)
+            traceback.print_exc()
+            return False
+        except Exception as e:
+            session.rollback()
+            print(f"Error inesperado al eliminar otro equipo {equipo_id}: {e}", file=sys.stderr)
+            traceback.print_exc()
+            return False
+    
+    def agregar_mantenimiento(self, tipo_mantenimiento, descripcion, tecnico,
+                              aire_id=None, otro_equipo_id=None, # Aceptar ambos IDs
+                              imagen_file=None):
+        """Agrega un registro de mantenimiento para un Aire o OtroEquipo."""
+        # Validar que solo uno de los IDs esté presente
+        if (aire_id is None and otro_equipo_id is None) or \
+           (aire_id is not None and otro_equipo_id is not None):
+            print("Error: Se debe proporcionar 'aire_id' O 'otro_equipo_id', pero no ambos o ninguno.", file=sys.stderr)
+            return None
 
         try:
-            # Si se cargó una imagen, procesarla y guardarla
-            if imagen_file and imagen_file.filename: # Verificar que hay archivo y tiene nombre
-                print(f"Procesando imagen: {imagen_file.filename}, tipo: {imagen_file.content_type}")
+            imagen_datos = None
+            imagen_nombre = None
+            imagen_tipo = None
+            if imagen_file and imagen_file.filename != '':
+                imagen_nombre = imagen_file.filename
+                imagen_tipo = imagen_file.mimetype
+                imagen_datos = imagen_file.read()
 
-                # Obtener bytes de la imagen
-                imagen_bytes = imagen_file.read()
-                print(f"Leídos {len(imagen_bytes)} bytes de la imagen.")
-
-                # Guardar datos de la imagen (usando los atributos correctos)
-                nuevo_mantenimiento.imagen_nombre = imagen_file.filename
-                nuevo_mantenimiento.imagen_tipo = imagen_file.content_type
-                nuevo_mantenimiento.imagen_datos = imagen_bytes # Asegúrate que la columna en BD sea BLOB/BYTEA
-
-            # Guardar en la base de datos
-            print("Añadiendo mantenimiento a la sesión...")
+            nuevo_mantenimiento = Mantenimiento(
+                # --- CAMBIO: Asignar el ID correspondiente ---
+                aire_id=aire_id,
+                otro_equipo_id=otro_equipo_id,
+                # --- FIN CAMBIO ---
+                fecha=datetime.now(),
+                tipo_mantenimiento=tipo_mantenimiento,
+                descripcion=descripcion,
+                tecnico=tecnico,
+                imagen_nombre=imagen_nombre,
+                imagen_tipo=imagen_tipo,
+                imagen_datos=imagen_datos
+            )
             session.add(nuevo_mantenimiento)
-            print("Intentando hacer commit...")
             session.commit()
-            print(f"Mantenimiento guardado con ID: {nuevo_mantenimiento.id}")
-
+            target_type = "Aire" if aire_id else "OtroEquipo"
+            target_id_val = aire_id if aire_id else otro_equipo_id
+            print(f"Mantenimiento agregado: ID={nuevo_mantenimiento.id} para {target_type} ID={target_id_val}")
             return nuevo_mantenimiento.id
-
+        except SQLAlchemyError as e:
+            session.rollback()
+            print(f"Error de base de datos al agregar mantenimiento: {e}", file=sys.stderr)
+            traceback.print_exc()
+            return None
         except Exception as e:
-            # Si algo falla (lectura de archivo, commit a BD), hacer rollback
-            print(f"!!! ERROR en agregar_mantenimiento: {e}", file=sys.stderr)
-            traceback.print_exc() # Imprime el traceback completo en la consola del servidor
-            session.rollback() # Deshacer cambios en la sesión actual
-            return None # Indicar que hubo un error
-    
-    def obtener_mantenimientos(self, aire_id=None):
-        """
-        Obtiene todos los mantenimientos, opcionalmente filtrados por aire_id.
-        
-        Args:
-            aire_id: Opcional, ID del aire acondicionado para filtrar
-            
-        Returns:
-            DataFrame con los mantenimientos
-        """
-        # Construir la consulta
-        query = session.query(Mantenimiento)
-        
-        # Filtrar por aire_id si se proporciona
-        if aire_id is not None:
-            query = query.filter(Mantenimiento.aire_id == aire_id)
-        
-        # Ordenar por fecha (más recientes primero)
-        mantenimientos = query.order_by(Mantenimiento.fecha.desc()).all()
-        
-        # Convertir a DataFrame
-        mantenimientos_data = [
-            {
-                'id': mant.id,
-                'aire_id': mant.aire_id,
-                'fecha': mant.fecha,
-                'tipo_mantenimiento': mant.tipo_mantenimiento,
-                'descripcion': mant.descripcion,
-                'tecnico': mant.tecnico,
-                'tiene_imagen': mant.imagen_datos is not None
-            }
-            for mant in mantenimientos
-        ]
-        
-        return pd.DataFrame(mantenimientos_data)
-    
+            session.rollback()
+            print(f"Error inesperado al agregar mantenimiento: {e}", file=sys.stderr)
+            traceback.print_exc()
+            return None
+
+    def obtener_mantenimientos(self, aire_id=None, otro_equipo_id=None): # Añadir filtro por otro_equipo_id
+        """Obtiene los registros de mantenimiento, opcionalmente filtrados."""
+        try:
+            query = session.query(
+                Mantenimiento.id,
+                Mantenimiento.aire_id,
+                Mantenimiento.otro_equipo_id, # Incluir nuevo ID
+                Mantenimiento.fecha,
+                Mantenimiento.tipo_mantenimiento,
+                Mantenimiento.descripcion,
+                Mantenimiento.tecnico,
+                Mantenimiento.imagen_datos, # Para verificar si hay imagen
+                # Unir opcionalmente para obtener nombres/ubicaciones
+                AireAcondicionado.nombre.label('aire_nombre'),
+                AireAcondicionado.ubicacion.label('aire_ubicacion'),
+                OtroEquipo.nombre.label('otro_equipo_nombre'),
+                OtroEquipo.tipo.label('otro_equipo_tipo'),
+                OtroEquipo.ubicacion.label('otro_equipo_ubicacion')
+            ).outerjoin(AireAcondicionado, Mantenimiento.aire_id == AireAcondicionado.id)\
+             .outerjoin(OtroEquipo, Mantenimiento.otro_equipo_id == OtroEquipo.id) # Join con OtroEquipo
+
+            if aire_id:
+                query = query.filter(Mantenimiento.aire_id == aire_id)
+            elif otro_equipo_id: # Nuevo filtro
+                query = query.filter(Mantenimiento.otro_equipo_id == otro_equipo_id)
+
+            query = query.order_by(Mantenimiento.fecha.desc())
+
+            df = pd.read_sql(query.statement, session.bind)
+
+            # Procesamiento adicional (similar a como lo tenías antes)
+            if not df.empty:
+                df['fecha'] = pd.to_datetime(df['fecha']) # Mantener como datetime para posible uso futuro
+                df['tiene_imagen'] = df['imagen_datos'].notna()
+                # Crear columnas unificadas para nombre y ubicación del equipo
+                df['equipo_nombre'] = df['aire_nombre'].fillna(df['otro_equipo_nombre'])
+                df['equipo_ubicacion'] = df['aire_ubicacion'].fillna(df['otro_equipo_ubicacion'])
+                df['equipo_tipo'] = 'Aire Acondicionado' # Valor por defecto
+                df.loc[df['otro_equipo_id'].notna(), 'equipo_tipo'] = df['otro_equipo_tipo'] # Sobrescribir si es OtroEquipo
+
+                # Eliminar columnas redundantes o no necesarias para el frontend básico
+                df = df.drop(columns=['imagen_datos', 'aire_nombre', 'aire_ubicacion',
+                                      'otro_equipo_nombre', 'otro_equipo_tipo', 'otro_equipo_ubicacion'])
+
+                # Convertir IDs a enteros (manejando nulos si pd.read_sql los trae como float)
+                for col in ['aire_id', 'otro_equipo_id']:
+                    if col in df.columns:
+                         # Convertir a Int64 que soporta nulos, luego llenar NaN con 0 y convertir a int
+                         # O manejarlo de otra forma si prefieres mantener None/null en JSON
+                         df[col] = df[col].astype('Int64').fillna(0).astype(int)
+
+
+            return df
+        except Exception as e:
+            print(f"Error al obtener mantenimientos: {e}", file=sys.stderr)
+            traceback.print_exc()
+            return pd.DataFrame()
+
     def obtener_mantenimiento_por_id(self, mantenimiento_id):
-        """
-        Obtiene un mantenimiento específico por su ID.
-        
-        Args:
-            mantenimiento_id: ID del mantenimiento a obtener
-            
-        Returns:
-            Objeto Mantenimiento o None si no existe
-        """
-        return session.query(Mantenimiento).filter(Mantenimiento.id == mantenimiento_id).first()
+        """Obtiene un mantenimiento específico por su ID."""
+        try:
+            # Podrías hacer un join aquí también si necesitas info del equipo asociado
+            return session.query(Mantenimiento).get(mantenimiento_id)
+        except Exception as e:
+            print(f"Error al obtener mantenimiento por ID {mantenimiento_id}: {e}", file=sys.stderr)
+            return None
+    
     
     def eliminar_mantenimiento(self, mantenimiento_id):
         """
@@ -1392,6 +1542,14 @@ class DataManager:
             traceback.print_exc()
             return 0 # Return 0 on error
 
+    def contar_otros_equipos(self):
+        """Cuenta el número total de otros equipos registrados."""
+        try:
+            return session.query(OtroEquipo).count()
+        except Exception as e:
+            print(f"Error al contar otros equipos: {e}", file=sys.stderr)
+            return 0
+        
     def obtener_ultimas_lecturas_con_info_aire(self, limite=5):
         """
         Obtiene las últimas N lecturas registradas, incluyendo información

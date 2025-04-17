@@ -1,5 +1,11 @@
 {
   "devDependencies": {
-    "@types/node": "^22.14.0"
+    "@types/node": "^22.14.0",
+    "@types/react": "^19.1.2",
+    "@types/react-toastify": "^4.0.2"
+  },
+  "dependencies": {
+    "@mui/x-data-grid": "^7.28.3",
+    "react-toastify": "^11.0.5"
   }
 }
