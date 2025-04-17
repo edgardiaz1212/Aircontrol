@@ -82,7 +82,7 @@ const AiresTable: React.FC<AiresTableProps> = ({
     // Renderiza la tabla si hay datos
     return (
         <div className="table-responsive">
-            <Table hover className="table-clickable aires-table"> {/* Añadir clase para posible estilo específico */}
+            <Table hover className="table-clickable aires-table">
                 <thead>
                     <tr>
                         <th>Nombre</th>
