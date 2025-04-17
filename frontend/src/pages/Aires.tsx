@@ -265,12 +265,40 @@ const Aires: React.FC = () => {
     e.preventDefault();
     setEditError(null); // Limpiar error del modal
     // No limpiar error general aquí, podría haber uno de carga
-    // setError(null);
+     setError(null);
 
-    if (!formData.nombre || !formData.ubicacion || !formData.fecha_instalacion) {
-        setEditError("Nombre, Ubicación y Fecha de Instalación son requeridos.");
-        return;
-    }
+   // --- VALIDACIÓN ---
+   const requiredFields: (keyof AireAcondicionado)[] = [
+    'nombre',
+    'ubicacion',
+    'fecha_instalacion',
+    // Añadir los campos únicos
+    'evaporadora_serial',
+    'evaporadora_codigo_inventario',
+    'condensadora_serial',
+    'condensadora_codigo_inventario'
+];
+
+const missingFields = requiredFields.filter(field => !formData[field]);
+
+if (missingFields.length > 0) {
+    // Crear un mensaje de error más específico
+    const fieldNames = missingFields.map(field => {
+        // Mapear nombres técnicos a nombres legibles
+        switch(field) {
+            case 'nombre': return 'Nombre';
+            case 'ubicacion': return 'Ubicación';
+            case 'fecha_instalacion': return 'Fecha de Instalación';
+            case 'evaporadora_serial': return 'Serial Evaporadora';
+            case 'evaporadora_codigo_inventario': return 'Inventario Evaporadora';
+            case 'condensadora_serial': return 'Serial Condensadora';
+            case 'condensadora_codigo_inventario': return 'Inventario Condensadora';
+            default: return field;
+        }
+    }).join(', ');
+    setEditError(`Los siguientes campos son requeridos: ${fieldNames}.`);
+    return; // Detener el envío
+}
 
     const payload: Partial<AireAcondicionado> = {
         ...formData,
@@ -289,34 +317,36 @@ const Aires: React.FC = () => {
       if (formMode === 'add') {
         response = await api.post<{ success: boolean; mensaje: string; data: AireAcondicionado }>('/aires', payload);
         if (!response.data?.success) {
+            // --- MEJORA: Capturar error de duplicado del backend ---
+            if (response.data?.mensaje?.toLowerCase().includes('duplicate') || response.data?.mensaje?.toLowerCase().includes('único')) {
+                 throw new Error(`Error: Ya existe un registro con ese Serial o Código de Inventario.`);
+            }
             throw new Error(response.data?.mensaje || "Error al agregar aire.");
         }
       } else if (formMode === 'edit' && formData.id) {
         response = await api.put<{ success: boolean; mensaje: string; data?: AireAcondicionado }>(`/aires/${formData.id}`, payload);
          if (!response.data?.success) {
+             // --- MEJORA: Capturar error de duplicado del backend ---
+             if (response.data?.mensaje?.toLowerCase().includes('duplicate') || response.data?.mensaje?.toLowerCase().includes('único')) {
+                 throw new Error(`Error: Ya existe otro registro con ese Serial o Código de Inventario.`);
+            }
             throw new Error(response.data?.mensaje || "Error al actualizar aire.");
         }
       }
 
-      // Si llegamos aquí, la operación fue exitosa en el backend
       setShowEditModal(false);
-      // Refetch la lista para asegurar consistencia
-      setLoading(true); // Mostrar loading mientras recarga
-      await fetchAiresList(); // Llamar SIN señal
+      setLoading(true);
+      await fetchAiresList();
 
     } catch (error: any) {
       console.error('Error al guardar:', error);
-      if (error.response) {
-          console.error("Error Respuesta Backend:", error.response.data);
-          const message = error.response.data?.mensaje || error.message || 'Error al guardar';
-          setEditError(message); // Mostrar error en el modal
-      } else {
-          setEditError(error.message || 'Error de red o al procesar la solicitud');
-      }
+      // Mostrar el mensaje de error específico (incluyendo el de duplicado)
+      setEditError(error.message || 'Error de red o al procesar la solicitud');
+      // No cerrar el modal en caso de error para que el usuario corrija
     } finally {
         // setLoadingSubmit(false);
     }
-  }, [formData, formMode, fetchAiresList]); // Depender de fetchAiresList
+  }, [formData, formMode, fetchAiresList]);
 
   const handleRowClick = useCallback(async (id: number) => {
     setShowViewModal(true);

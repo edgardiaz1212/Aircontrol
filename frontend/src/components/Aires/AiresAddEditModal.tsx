@@ -1,11 +1,11 @@
 // src/components/Aires/AiresAddEditModal.tsx
 import React from 'react';
-import { Modal, Form, Button, Row, Col, Spinner, Alert, Accordion } from 'react-bootstrap'; // Añadir Accordion si lo usas
-import { FiInfo, FiSettings, FiPackage, FiZap } from 'react-icons/fi'; // Añadir más iconos
+import { Modal, Form, Button, Row, Col, Spinner, Alert, Accordion } from 'react-bootstrap';
+import { FiInfo, FiSettings, FiPackage, FiZap } from 'react-icons/fi';
 
-// Asegúrate que la interfaz AireAcondicionado esté definida o importada aquí también
+// Interfaz AireAcondicionado (sin cambios)
 interface AireAcondicionado {
-    id?: number; // ID es opcional al crear
+    id?: number;
     nombre?: string;
     ubicacion?: string;
     fecha_instalacion?: string;
@@ -14,34 +14,29 @@ interface AireAcondicionado {
     evaporadora_operativa?: boolean;
     evaporadora_marca?: string;
     evaporadora_modelo?: string;
-    evaporadora_serial?: string;
-    evaporadora_codigo_inventario?: string;
+    evaporadora_serial?: string; // unique
+    evaporadora_codigo_inventario?: string; // unique
     evaporadora_ubicacion_instalacion?: string;
     condensadora_operativa?: boolean;
     condensadora_marca?: string;
     condensadora_modelo?: string;
-    condensadora_serial?: string;
-    condensadora_codigo_inventario?: string;
+    condensadora_serial?: string; // unique
+    condensadora_codigo_inventario?: string; // unique
     condensadora_ubicacion_instalacion?: string;
-  }
-  
-  
-  interface AiresAddEditModalProps {
-      show: boolean; 
-      onHide: () => void; 
-      modalTitle: string; 
-      formData: Partial<AireAcondicionado>; 
-      formMode: 'add' | 'edit'; 
-      loadingEditDetails: boolean; 
-      editError: string | null; 
-      onSubmit: (e: React.FormEvent) => void; 
-      onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => void; // Esta ya estaba
-  }
+}
 
 interface AiresAddEditModalProps {
-    // ... (props existentes)
-    onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement | HTMLInputElement>) => void; // Asegurar que incluya Checkbox (HTMLInputElement)
+    show: boolean;
+    onHide: () => void;
+    modalTitle: string;
+    formData: Partial<AireAcondicionado>;
+    formMode: 'add' | 'edit';
+    loadingEditDetails: boolean;
+    editError: string | null;
+    onSubmit: (e: React.FormEvent) => void;
+    onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => void; // Ajustado para incluir Checkbox implícitamente
 }
+
 
 const AiresAddEditModal: React.FC<AiresAddEditModalProps> = ({
     show,
@@ -52,23 +47,14 @@ const AiresAddEditModal: React.FC<AiresAddEditModalProps> = ({
     loadingEditDetails,
     editError,
     onSubmit,
-    onChange // Asegúrate que la prop onChange acepte eventos de Checkbox
+    onChange
 }) => {
 
-    // Helper para manejar cambios en checkboxes
+    // Helper para manejar cambios en checkboxes (ajustado para llamar a onChange directamente)
     const handleCheckboxChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const { name, checked } = e.target;
-        // Llama a la función onChange original pero pasando un evento simulado
-        // o ajusta la función onChange en Aires.tsx para manejar 'checked'
-        onChange({
-            ...e, // Pasa el evento original
-            target: {
-                ...e.target,
-                name,
-                value: checked, // El valor para el estado es el booleano 'checked'
-                type: 'checkbox', // Identifica que es un checkbox
-            }
-        } as any); // Usar 'as any' aquí es una solución rápida, idealmente ajusta el tipo en Aires.tsx
+        // Llama a la función onChange original pasada como prop
+        // Asume que la función onChange en Aires.tsx puede manejar el tipo 'checkbox'
+        onChange(e);
     };
 
 
@@ -79,23 +65,32 @@ const AiresAddEditModal: React.FC<AiresAddEditModalProps> = ({
             </Modal.Header>
             <Form onSubmit={onSubmit}>
                 <Modal.Body>
-                    {/* ... (Error y Loading indicator) ... */}
+                    {editError && <Alert variant="danger">{editError}</Alert>}
+                    {loadingEditDetails && formMode === 'edit' && (
+                         <div className="text-center">
+                            <Spinner animation="border" variant="primary" />
+                            <p className="mt-2">Cargando detalles...</p>
+                        </div>
+                    )}
 
+                    {/* Mostrar formulario si no está cargando detalles O si es modo 'add' */}
                     {(!loadingEditDetails || formMode === 'add') && (
-                        <Accordion defaultActiveKey={['0', '1']} alwaysOpen> {/* Usar Accordion para organizar */}
+                        <Accordion defaultActiveKey={['0', '1', '2']} alwaysOpen> {/* Abrir todas por defecto */}
+                            {/* --- Información General --- */}
                             <Accordion.Item eventKey="0">
                                 <Accordion.Header><FiInfo className="me-2" /> Información General</Accordion.Header>
                                 <Accordion.Body>
                                     <Row>
                                         <Col md={6}>
                                             <Form.Group className="mb-3">
-                                                <Form.Label>Nombre *</Form.Label>
+                                                {/* Campos requeridos básicos */}
+                                                <Form.Label>Nombre <span className="text-danger">*</span></Form.Label>
                                                 <Form.Control type="text" name="nombre" value={formData.nombre || ''} onChange={onChange} required placeholder="Ej: Aire Sala Servidores 1" />
                                             </Form.Group>
                                         </Col>
                                         <Col md={6}>
                                             <Form.Group className="mb-3">
-                                                <Form.Label>Ubicación *</Form.Label>
+                                                <Form.Label>Ubicación <span className="text-danger">*</span></Form.Label>
                                                 <Form.Control type="text" name="ubicacion" value={formData.ubicacion || ''} onChange={onChange} required placeholder="Ej: Edificio A, Piso 3" />
                                             </Form.Group>
                                         </Col>
@@ -103,7 +98,7 @@ const AiresAddEditModal: React.FC<AiresAddEditModalProps> = ({
                                     <Row>
                                         <Col md={6}>
                                             <Form.Group className="mb-3">
-                                                <Form.Label>Fecha de Instalación *</Form.Label>
+                                                <Form.Label>Fecha de Instalación <span className="text-danger">*</span></Form.Label>
                                                 <Form.Control type="date" name="fecha_instalacion" value={formData.fecha_instalacion || ''} onChange={onChange} required />
                                             </Form.Group>
                                         </Col>
@@ -119,21 +114,11 @@ const AiresAddEditModal: React.FC<AiresAddEditModalProps> = ({
                                                 <Form.Control type="number" name="toneladas" value={formData.toneladas ?? ''} onChange={onChange} placeholder="Ej: 1.5" step="0.1" min="0" />
                                             </Form.Group>
                                         </Col>
-                                        {/* Si mantienes 'estado', añádelo aquí */}
-                                        {/* <Col md={6}>
-                                            <Form.Group className="mb-3">
-                                                <Form.Label>Estado</Form.Label>
-                                                <Form.Select name="estado" value={formData.estado || 'Activo'} onChange={onChange}>
-                                                    <option value="Activo">Activo</option>
-                                                    <option value="Inactivo">Inactivo</option>
-                                                    <option value="Mantenimiento">Mantenimiento</option>
-                                                </Form.Select>
-                                            </Form.Group>
-                                        </Col> */}
                                     </Row>
                                 </Accordion.Body>
                             </Accordion.Item>
 
+                            {/* --- Unidad Evaporadora --- */}
                             <Accordion.Item eventKey="1">
                                 <Accordion.Header><FiPackage className="me-2" /> Unidad Evaporadora</Accordion.Header>
                                 <Accordion.Body>
@@ -152,16 +137,18 @@ const AiresAddEditModal: React.FC<AiresAddEditModalProps> = ({
                                         </Col>
                                         <Col md={4}>
                                             <Form.Group className="mb-3">
-                                                <Form.Label>Serial</Form.Label>
-                                                <Form.Control type="text" name="evaporadora_serial" value={formData.evaporadora_serial || ''} onChange={onChange} placeholder="Ej: SN-EVAP123" />
+                                                {/* CAMBIO: Añadir asterisco y required */}
+                                                <Form.Label>Serial <span className="text-danger">*</span></Form.Label>
+                                                <Form.Control type="text" name="evaporadora_serial" value={formData.evaporadora_serial || ''} onChange={onChange} required placeholder="Ej: SN-EVAP123" />
                                             </Form.Group>
                                         </Col>
                                     </Row>
                                     <Row>
                                         <Col md={6}>
                                             <Form.Group className="mb-3">
-                                                <Form.Label>Código Inventario</Form.Label>
-                                                <Form.Control type="text" name="evaporadora_codigo_inventario" value={formData.evaporadora_codigo_inventario || ''} onChange={onChange} placeholder="Ej: INV-EVAP456" />
+                                                 {/* CAMBIO: Añadir asterisco y required */}
+                                                <Form.Label>Código Inventario <span className="text-danger">*</span></Form.Label>
+                                                <Form.Control type="text" name="evaporadora_codigo_inventario" value={formData.evaporadora_codigo_inventario || ''} onChange={onChange} required placeholder="Ej: INV-EVAP456" />
                                             </Form.Group>
                                         </Col>
                                          <Col md={6}>
@@ -177,13 +164,14 @@ const AiresAddEditModal: React.FC<AiresAddEditModalProps> = ({
                                             id="evaporadora_operativa_switch"
                                             label="¿Evaporadora Operativa?"
                                             name="evaporadora_operativa"
-                                            checked={!!formData.evaporadora_operativa} // Asegura que sea booleano
-                                            onChange={handleCheckboxChange} // Usa el handler específico
+                                            checked={!!formData.evaporadora_operativa}
+                                            onChange={handleCheckboxChange} // Usar el handler específico
                                         />
                                     </Form.Group>
                                 </Accordion.Body>
                             </Accordion.Item>
 
+                            {/* --- Unidad Condensadora --- */}
                             <Accordion.Item eventKey="2">
                                 <Accordion.Header><FiZap className="me-2" /> Unidad Condensadora</Accordion.Header>
                                 <Accordion.Body>
@@ -202,16 +190,18 @@ const AiresAddEditModal: React.FC<AiresAddEditModalProps> = ({
                                         </Col>
                                         <Col md={4}>
                                             <Form.Group className="mb-3">
-                                                <Form.Label>Serial</Form.Label>
-                                                <Form.Control type="text" name="condensadora_serial" value={formData.condensadora_serial || ''} onChange={onChange} placeholder="Ej: SN-COND789" />
+                                                 {/* CAMBIO: Añadir asterisco y required */}
+                                                <Form.Label>Serial <span className="text-danger">*</span></Form.Label>
+                                                <Form.Control type="text" name="condensadora_serial" value={formData.condensadora_serial || ''} onChange={onChange} required placeholder="Ej: SN-COND789" />
                                             </Form.Group>
                                         </Col>
                                     </Row>
                                     <Row>
                                         <Col md={6}>
                                             <Form.Group className="mb-3">
-                                                <Form.Label>Código Inventario</Form.Label>
-                                                <Form.Control type="text" name="condensadora_codigo_inventario" value={formData.condensadora_codigo_inventario || ''} onChange={onChange} placeholder="Ej: INV-COND012" />
+                                                 {/* CAMBIO: Añadir asterisco y required */}
+                                                <Form.Label>Código Inventario <span className="text-danger">*</span></Form.Label>
+                                                <Form.Control type="text" name="condensadora_codigo_inventario" value={formData.condensadora_codigo_inventario || ''} onChange={onChange} required placeholder="Ej: INV-COND012" />
                                             </Form.Group>
                                         </Col>
                                          <Col md={6}>
@@ -227,25 +217,22 @@ const AiresAddEditModal: React.FC<AiresAddEditModalProps> = ({
                                             id="condensadora_operativa_switch"
                                             label="¿Condensadora Operativa?"
                                             name="condensadora_operativa"
-                                            checked={!!formData.condensadora_operativa} // Asegura que sea booleano
-                                            onChange={handleCheckboxChange} // Usa el handler específico
+                                            checked={!!formData.condensadora_operativa}
+                                            onChange={handleCheckboxChange} // Usar el handler específico
                                         />
                                     </Form.Group>
                                 </Accordion.Body>
                             </Accordion.Item>
-
-                            {/* Añade más Accordion.Item si tienes otros grupos de campos */}
-
                         </Accordion>
                     )}
                 </Modal.Body>
                 <Modal.Footer>
-                    {/* ... (Botones Cancelar y Guardar) ... */}
-                     <Button variant="secondary" onClick={onHide}>
+                     <Button variant="secondary" onClick={onHide} disabled={loadingEditDetails && formMode === 'edit'}>
                         Cancelar
                     </Button>
                     <Button variant="primary" type="submit" disabled={loadingEditDetails && formMode === 'edit'}>
-                        Guardar
+                        {/* Podrías añadir un estado loadingSubmit si quieres feedback en el botón */}
+                        Guardar Cambios
                     </Button>
                 </Modal.Footer>
             </Form>
